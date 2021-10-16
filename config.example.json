@@ -1,0 +1,7 @@
+// Copy this file to config.json in the root folder
+{
+  "exchange": "binance_futures", //Supported values: binance_futures
+  "api_key": "",
+  "api_secret": "",
+  "symbols": ["BTCUSDT", "ETHUSDT"]
+}

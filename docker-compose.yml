@@ -1,5 +1,12 @@
 version: '3.9'
 services:
+  scraper:
+    build: .
+    environment:
+      - CONFIG_FILE=/scraper/config.json
+      - DATABASE_PATH=sqlite:////data/exchanges_db.sqlite
+    volumes:
+      - $PWD/data:/data
   metabase-app:
     image: metabase/metabase:latest
     container_name: metabase
@@ -14,6 +21,8 @@ services:
       MB_DB_FILE: /metabase-data/metabase.db
     networks:
       - metanet1
+    depends_on:
+      - scraper
 networks:
   metanet1:
     driver: bridge
