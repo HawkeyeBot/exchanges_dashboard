@@ -15,3 +15,12 @@ This repository is meant to provide an easy-to-run (local) web-UI that provides 
 * Database type: SQLite
 * Name: Exchanges
 * Filename: /data/exchanges_db.sqlite
+
+# Starting the dashboard
+
+* Copy the config.example.json to config.json
+* Enter the api-key & secret
+* Run `docker-compose up -d`
+
+# Stopping the dashboard
+* Run `docker-compose stop`
