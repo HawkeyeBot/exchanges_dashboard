@@ -49,8 +49,6 @@ class BinanceFutures:
             try:
                 exchange_incomes: List = None
                 counter = 0
-                #TODO: should also load the newer entries
-                # maximum of 3 refreshes per cycle
                 while exchange_incomes is None or ((len(exchange_incomes) == 1000) and counter < 3):
                     counter += 1
                     oldest_income = self.repository.get_oldest_income()
@@ -140,7 +138,7 @@ class BinanceFutures:
                         order = Order()
                         order.symbol = open_order['symbol']
                         order.price = float(open_order['price'])
-                        order.origQty = float(open_order['origQty'])
+                        order.quantity = float(open_order['origQty'])
                         order.side = open_order['side']
                         order.position_side = open_order['positionSide']
                         order.type = open_order['type']
