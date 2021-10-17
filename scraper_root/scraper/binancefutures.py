@@ -121,7 +121,7 @@ class BinanceFutures:
                                       unrealizedProfit=float(position['unrealizedProfit'])
                                       ) for position in account['positions'] if position['positionSide'] != 'BOTH']
                 self.repository.process_positions(positions)
-                logger.warning('Synced accounnt')
+                logger.warning('Synced account')
             except Exception as e:
                 logger.error(f'Failed to process balance: {e}')
 
