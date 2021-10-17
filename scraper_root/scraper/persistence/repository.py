@@ -1,14 +1,16 @@
 import logging
 import os
-from datetime import datetime
+import threading
+import time
+from datetime import datetime, date, timedelta
 from typing import List, Dict
 
-from sqlalchemy import create_engine, func
+from sqlalchemy import create_engine, func, Table
 from sqlalchemy.orm import sessionmaker
 
 from scraper_root.scraper.data_classes import Order, Tick, Position, Balance, Income
 from scraper_root.scraper.persistence.orm_classes import _DECL_BASE, CurrentPriceEntity, \
-    BalanceEntity, AssetBalanceEntity, PositionEntity, IncomeEntity, OrderEntity
+    BalanceEntity, AssetBalanceEntity, PositionEntity, IncomeEntity, OrderEntity, DailyBalanceEntity
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +22,40 @@ class Repository:
 
         self.session = sessionmaker()
         self.session.configure(bind=self.engine)
+
+        update_daily_balance_thread = threading.Thread(name=f'sync_balance_thread', target=self.update_daily_balance, daemon=True)
+        update_daily_balance_thread.start()
+
+    def update_daily_balance(self):
+        while True:
+            with self.session() as session:
+                session.query(DailyBalanceEntity).delete()
+                session.commit()
+                result = session.query(BalanceEntity.totalWalletBalance).first()
+                current_balance = 0
+                if result is not None:
+                    current_balance = result[0]
+
+            daily_balances = []
+            with self.engine.connect() as con:
+                day = self.get_oldest_income().time.date()
+                end_date = date.today()
+                while day <= end_date:
+                    rs = con.execute(f'SELECT sum("INCOME"."income") AS "sum" FROM "INCOME" WHERE "INCOME"."time" >= date(\'{day.strftime("%Y-%m-%d")}\')')
+                    for row in rs:
+                        income = float(row[0])
+                        daily_balance = DailyBalanceEntity()
+                        daily_balance.day = day
+                        daily_balance.totalWalletBalance = current_balance - income
+                        daily_balances.append(daily_balance)
+
+                    day += timedelta(days=1)
+
+            with self.session() as session:
+                [session.add(balance) for balance in daily_balances]
+                session.commit()
+
+            time.sleep(60)
 
     def process_order_update(self, order: Order):
         # if order is already in the database, update it

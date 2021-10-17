@@ -21,6 +21,7 @@ This repository is meant to provide an easy-to-run (local) web-UI that provides 
 * Copy the config.example.json to config.json
 * Enter the api-key & secret
 * Run `docker-compose up -d`
+* Go to https://localhost:3000
 
 # Stopping the dashboard
 * Run `docker-compose stop`

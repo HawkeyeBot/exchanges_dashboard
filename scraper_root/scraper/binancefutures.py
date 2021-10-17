@@ -60,7 +60,7 @@ class BinanceFutures:
                     else:
                         oldest_datetime = oldest_income.time
                         oldest_timestamp = int(oldest_datetime.timestamp() * 1000)
-                        logger.warning(f'Synced trades beforee {oldest_datetime}')
+                        logger.warning(f'Synced trades before {oldest_datetime}')
 
                     exchange_incomes = self.rest_manager.futures_income_history(**{'limit': 1000, 'endTime': oldest_timestamp})
                     incomes = []

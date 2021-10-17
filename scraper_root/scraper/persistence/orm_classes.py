@@ -24,6 +24,14 @@ class OrderEntity(_DECL_BASE):
     close_position = Column(Boolean)
 
 
+class DailyBalanceEntity(_DECL_BASE):
+    __tablename__ = 'DAILY_BALANCE'
+    id = Column(Integer, primary_key=True)
+    registration_datetime = Column(DateTime, default=func.now())
+    day = Column(DateTime)
+    totalWalletBalance = Column(Float)
+
+
 class BalanceEntity(_DECL_BASE):
     __tablename__ = 'BALANCE'
     id = Column(Integer, primary_key=True)
