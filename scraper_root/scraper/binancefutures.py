@@ -54,13 +54,13 @@ class BinanceFutures:
                     oldest_income = self.repository.get_oldest_income()
                     if oldest_income is None:
                         # API will return inclusive, don't want to return the oldest record again
-                        oldest_timestamp = int(datetime.datetime.now(datetime.timezone.utc).timestamp() * 1000) - 1
+                        oldest_timestamp = int(datetime.datetime.now(datetime.timezone.utc).timestamp() * 1000)
                     else:
                         oldest_datetime = oldest_income.time
                         oldest_timestamp = int(oldest_datetime.timestamp() * 1000)
                         logger.warning(f'Synced trades before {oldest_datetime}')
 
-                    exchange_incomes = self.rest_manager.futures_income_history(**{'limit': 1000, 'endTime': oldest_timestamp})
+                    exchange_incomes = self.rest_manager.futures_income_history(**{'limit': 1000, 'endTime': oldest_timestamp - 1})
                     incomes = []
                     for exchange_income in exchange_incomes:
                         income = Income(symbol=exchange_income['symbol'],
@@ -77,13 +77,13 @@ class BinanceFutures:
                     newest_income = self.repository.get_newest_income()
                     if newest_income is None:
                         # API will return inclusive, don't want to return the newest record again
-                        newest_timestamp = int(datetime.datetime.now(datetime.timezone.utc).timestamp() * 1000) + 1
+                        newest_timestamp = int(datetime.datetime.now(datetime.timezone.utc).timestamp() * 1000)
                     else:
                         newest_datetime = newest_income.time
                         newest_timestamp = int(newest_datetime.timestamp() * 1000)
                         logger.warning(f'Synced newer trades since {newest_datetime}')
 
-                    exchange_incomes = self.rest_manager.futures_income_history(**{'limit': 1000, 'startTime': newest_timestamp})
+                    exchange_incomes = self.rest_manager.futures_income_history(**{'limit': 1000, 'startTime': newest_timestamp + 1})
                     incomes = []
                     for exchange_income in exchange_incomes:
                         income = Income(symbol=exchange_income['symbol'],
