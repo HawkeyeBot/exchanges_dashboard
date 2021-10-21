@@ -17,6 +17,9 @@ if __name__ == '__main__':
         if hasattr(scraper_config, key):
             setattr(scraper_config, key, user_config[key])
 
+    if 'BTCUSDT' not in scraper_config.symbols:
+        scraper_config.symbols.append('BTCUSDT')
+
     scraper = None
     repository=Repository()
     if scraper_config.exchange == 'binance_futures':
