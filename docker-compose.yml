@@ -7,6 +7,8 @@ services:
       - DATABASE_PATH=sqlite:////data/exchanges_db.sqlite
     volumes:
       - $PWD/data:/data
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
   metabase-app:
     image: metabase/metabase:latest
     container_name: metabase
