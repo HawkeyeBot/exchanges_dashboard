@@ -1,3 +1,4 @@
+import logging
 import os
 from types import SimpleNamespace
 
@@ -6,6 +7,12 @@ import hjson
 from scraper.binancefutures import BinanceFutures
 from scraper_root.scraper.data_classes import ScraperConfig
 from scraper_root.scraper.persistence.repository import Repository
+
+logging.basicConfig(
+    format='%(asctime)s %(levelname)-8s %(message)s',
+    level=logging.INFO,
+    datefmt='%Y-%m-%d %H:%M:%S')
+
 
 if __name__ == '__main__':
     config_file_path = os.environ['CONFIG_FILE']
