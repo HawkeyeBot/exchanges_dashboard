@@ -129,8 +129,8 @@ class BinanceFutures:
 
     def sync_open_orders(self):
         while True:
+            orders = {}
             try:
-                orders = {}
                 for symbol in self.config.symbols:
                     open_orders = self.rest_manager.futures_get_open_orders(**{'symbol': symbol})
                     orders[symbol] = []
@@ -144,9 +144,9 @@ class BinanceFutures:
                         order.type = open_order['type']
                         orders[symbol].append(order)
                 self.repository.process_orders(orders)
-                logger.warning('Synced orders')
             except Exception as e:
                 logger.error(f'Failed to process open orders: {e}')
+            logger.warning('Synced orders')
 
             time.sleep(20)
 
