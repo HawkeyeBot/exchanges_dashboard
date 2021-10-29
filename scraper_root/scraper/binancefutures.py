@@ -61,7 +61,7 @@ class BinanceFutures:
                         logger.warning(f'Synced trades before {oldest_datetime}')
 
                     exchange_incomes = self.rest_manager.futures_income_history(**{'limit': 1000, 'endTime': oldest_timestamp - 1})
-                    logger.info(f"Length of older trades fetched: {len(exchange_incomes)}")
+                    logger.info(f"Length of older trades fetched up to {oldest_timestamp}: {len(exchange_incomes)}")
                     incomes = []
                     for exchange_income in exchange_incomes:
                         income = Income(symbol=exchange_income['symbol'],
@@ -88,7 +88,7 @@ class BinanceFutures:
                         logger.warning(f'Synced newer trades since {newest_datetime}')
 
                     exchange_incomes = self.rest_manager.futures_income_history(**{'limit': 1000, 'startTime': newest_timestamp + 1})
-                    logger.info(f"Length of newer trades fetched: {len(exchange_incomes)}")
+                    logger.info(f"Length of newer trades fetched from {newest_timestamp}: {len(exchange_incomes)}")
                     incomes = []
                     for exchange_income in exchange_incomes:
                         income = Income(symbol=exchange_income['symbol'],
