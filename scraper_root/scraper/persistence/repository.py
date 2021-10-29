@@ -17,13 +17,15 @@ logger = logging.getLogger(__name__)
 
 class Repository:
     def __init__(self):
-        self.engine = create_engine(url=os.getenv('DATABASE_PATH', 'sqlite:///data/exchanges_db.sqlite'), echo=False)
+        self.engine = create_engine(url=os.getenv(
+            'DATABASE_PATH', 'sqlite:///data/exchanges_db.sqlite'), echo=False)
         _DECL_BASE.metadata.create_all(self.engine)
 
         self.session = sessionmaker()
         self.session.configure(bind=self.engine)
 
-        update_daily_balance_thread = threading.Thread(name=f'sync_balance_thread', target=self.update_daily_balance, daemon=True)
+        update_daily_balance_thread = threading.Thread(
+            name=f'sync_balance_thread', target=self.update_daily_balance, daemon=True)
         update_daily_balance_thread.start()
 
     def update_daily_balance(self):
@@ -32,7 +34,8 @@ class Repository:
                 with self.session() as session:
                     session.query(DailyBalanceEntity).delete()
                     session.commit()
-                    result = session.query(BalanceEntity.totalWalletBalance).first()
+                    result = session.query(
+                        BalanceEntity.totalWalletBalance).first()
                     current_balance = 0
                     if result is not None:
                         current_balance = result[0]
@@ -44,7 +47,8 @@ class Repository:
                         day = oldest_income.time.date()
                         end_date = date.today()
                         while day <= end_date:
-                            rs = con.execute(f'SELECT sum("INCOME"."income") AS "sum" FROM "INCOME" WHERE "INCOME"."time" >= date(\'{day.strftime("%Y-%m-%d")}\')')
+                            rs = con.execute(
+                                f'SELECT sum("INCOME"."income") AS "sum" FROM "INCOME" WHERE "INCOME"."time" >= date(\'{day.strftime("%Y-%m-%d")}\')')
                             for row in rs:
                                 income = float(row[0])
                                 daily_balance = DailyBalanceEntity()
@@ -69,7 +73,7 @@ class Repository:
 
     def process_tick(self, tick: Tick):
         with self.session() as session:
-            #find entry in database
+            # find entry in database
             query = session.query(CurrentPriceEntity)
             query = query.filter(CurrentPriceEntity.symbol == tick.symbol)
             currentEntity = query.first()
@@ -123,28 +127,43 @@ class Repository:
     def get_oldest_income(self) -> IncomeEntity:
         with self.session() as session:
             logger.debug('Getting oldest income')
-            result = session.query(IncomeEntity).order_by(IncomeEntity.time.asc()).first()
+            result = session.query(IncomeEntity).order_by(
+                IncomeEntity.time.asc()).first()
             return result
 
     def get_newest_income(self) -> IncomeEntity:
         with self.session() as session:
             logger.debug('Getting newest income')
-            result = session.query(IncomeEntity).order_by(IncomeEntity.time.desc()).first()
+            result = session.query(IncomeEntity).order_by(
+                IncomeEntity.time.desc()).first()
             return result
 
     def process_incomes(self, incomes: List[Income]):
         with self.session() as session:
-            logger.debug('Processing incomes')
+            logger.warning('Processing incomes')
 
-            for income in incomes:
-                income_entity = IncomeEntity()
-                income_entity.income = income.income
-                income_entity.symbol = income.symbol
-                income_entity.time = datetime.utcfromtimestamp(income.timestamp / 1000)
-                income_entity.incomeType = income.type
-                income_entity.asset = income.asset
-                income_entity.transaction_id = income.transaction_id
-                session.add(income_entity)
+            # for income in incomes:
+            #    income_entity = IncomeEntity()
+            #    income_entity.income = income.income
+            #    income_entity.symbol = income.symbol
+            #    income_entity.time = datetime.utcfromtimestamp(
+            #        income.timestamp / 1000)
+            #    income_entity.incomeType = income.type
+            #    income_entity.asset = income.asset
+            #    income_entity.transaction_id = income.transaction_id
+            session.execute(
+                IncomeEntity.__table__.insert(),
+                params=[{
+                    "transaction_id": income.transaction_id,
+                    "symbol": income.symbol,
+                    "incomeType": income.type,
+                    "income": income.income,
+                    "asset": income.asset,
+                    "time": datetime.utcfromtimestamp(income.timestamp / 1000)}
+                    for income in incomes],
+            )
+
+            # session.add(income_entity)
             session.commit()
 
     def process_orders(self, orders: Dict[str, List[Order]]):
