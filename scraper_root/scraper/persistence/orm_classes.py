@@ -1,6 +1,7 @@
-from sqlalchemy import Column, Integer, DateTime, func, String, Float, Boolean, ForeignKey
+from sqlalchemy import UniqueConstraint, PrimaryKeyConstraint, Column, Integer, DateTime, func, String, Float, Boolean, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql.schema import UniqueConstraint
 
 _DECL_BASE = declarative_base()
 
@@ -38,7 +39,8 @@ class BalanceEntity(_DECL_BASE):
     registration_datetime = Column(DateTime, default=func.now())
     totalWalletBalance = Column(Float)
     totalUnrealizedProfit = Column(Float)
-    assets = relationship("AssetBalanceEntity", back_populates="balance", cascade="all, delete")
+    assets = relationship("AssetBalanceEntity",
+                          back_populates="balance", cascade="all, delete")
 
 
 class AssetBalanceEntity(_DECL_BASE):
@@ -75,9 +77,16 @@ class IncomeEntity(_DECL_BASE):
     __tablename__ = 'INCOME'
     id = Column(Integer, primary_key=True)
     registration_datetime = Column(DateTime, default=func.now())
-    transaction_id = Column(Integer)
+    transaction_id = Column(Integer, nullable=False,
+                            unique=True, sqlite_on_conflict_unique='IGNORE')
     symbol = Column(String)
     incomeType = Column(String)
     income = Column(Float)
     asset = Column(String)
     time = Column(DateTime)
+
+    __table_args__ = (
+        #PrimaryKeyConstraint(transaction_id, sqlite_on_conflict='IGNORE'),
+        (UniqueConstraint('transaction_id', sqlite_on_conflict='IGNORE')),
+
+    )
