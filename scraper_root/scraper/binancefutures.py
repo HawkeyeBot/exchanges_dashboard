@@ -2,12 +2,12 @@ import datetime
 import logging
 import threading
 import time
-from typing import List
 
 from unicorn_binance_rest_api import BinanceRestApiManager
 from unicorn_binance_websocket_api import BinanceWebSocketApiManager
 
-from scraper_root.scraper.data_classes import AssetBalance, Position, ScraperConfig, Tick, Balance, Income, Order
+from scraper_root.scraper.data_classes import AssetBalance, Position, ScraperConfig, Tick, Balance, \
+    Income, Order
 from scraper_root.scraper.persistence.repository import Repository
 
 logger = logging.getLogger()
@@ -45,11 +45,11 @@ class BinanceFutures:
         sync_orders_thread.start()
 
     def sync_trades(self):
+        first_trade_reached = False
         while True:
             try:
-                exchange_incomes: List = None
                 counter = 0
-                while exchange_incomes is None or ((len(exchange_incomes) == 1000) and counter < 3):
+                while first_trade_reached is False and counter < 3:
                     counter += 1
                     oldest_income = self.repository.get_oldest_income()
                     if oldest_income is None:
@@ -71,8 +71,11 @@ class BinanceFutures:
                                         transaction_id=exchange_income['tranId'])
                         incomes.append(income)
                     self.repository.process_incomes(incomes)
+                    if len(exchange_incomes) < 1000:
+                        first_trade_reached = True
 
-                while counter < 3:
+                newest_trade_reached = False
+                while newest_trade_reached is False and counter < 3:
                     counter += 1
                     newest_income = self.repository.get_newest_income()
                     if newest_income is None:
@@ -94,6 +97,8 @@ class BinanceFutures:
                                         transaction_id=exchange_income['tranId'])
                         incomes.append(income)
                     self.repository.process_incomes(incomes)
+                    if len(exchange_incomes) < 1000:
+                        newest_trade_reached = True
 
                 logger.warning('Synced trades')
             except Exception as e:
@@ -129,8 +134,8 @@ class BinanceFutures:
 
     def sync_open_orders(self):
         while True:
+            orders = {}
             try:
-                orders = {}
                 for symbol in self.config.symbols:
                     open_orders = self.rest_manager.futures_get_open_orders(**{'symbol': symbol})
                     orders[symbol] = []
@@ -144,9 +149,9 @@ class BinanceFutures:
                         order.type = open_order['type']
                         orders[symbol].append(order)
                 self.repository.process_orders(orders)
-                logger.warning('Synced orders')
             except Exception as e:
                 logger.error(f'Failed to process open orders: {e}')
+            logger.warning('Synced orders')
 
             time.sleep(20)
 
