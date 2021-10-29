@@ -23,7 +23,8 @@ class BinanceFutures:
         self.ws_manager = BinanceWebSocketApiManager(exchange=exchange, throw_exception_if_unrepairable=True,
                                                      warn_on_update=False)
 
-        self.rest_manager = BinanceRestApiManager(self.api_key, api_secret=self.secret)
+        self.rest_manager = BinanceRestApiManager(
+            self.api_key, api_secret=self.secret)
 
     def start(self):
         print('Starting binance futures scraper')
@@ -32,16 +33,20 @@ class BinanceFutures:
         # userdata_thread.start()
 
         for symbol in self.config.symbols:
-            symbol_trade_thread = threading.Thread(name=f'trade_thread_{symbol}', target=self.process_trades, args=(symbol,), daemon=True)
+            symbol_trade_thread = threading.Thread(
+                name=f'trade_thread_{symbol}', target=self.process_trades, args=(symbol,), daemon=True)
             symbol_trade_thread.start()
 
-        sync_balance_thread = threading.Thread(name=f'sync_balance_thread', target=self.sync_account, daemon=True)
+        sync_balance_thread = threading.Thread(
+            name=f'sync_balance_thread', target=self.sync_account, daemon=True)
         sync_balance_thread.start()
 
-        sync_trades_thread = threading.Thread(name=f'sync_trades_thread', target=self.sync_trades, daemon=True)
+        sync_trades_thread = threading.Thread(
+            name=f'sync_trades_thread', target=self.sync_trades, daemon=True)
         sync_trades_thread.start()
 
-        sync_orders_thread = threading.Thread(name=f'sync_orders_thread', target=self.sync_open_orders, daemon=True)
+        sync_orders_thread = threading.Thread(
+            name=f'sync_orders_thread', target=self.sync_open_orders, daemon=True)
         sync_orders_thread.start()
 
     def sync_trades(self):
@@ -54,24 +59,31 @@ class BinanceFutures:
                     oldest_income = self.repository.get_oldest_income()
                     if oldest_income is None:
                         # API will return inclusive, don't want to return the oldest record again
-                        oldest_timestamp = int(datetime.datetime.now(datetime.timezone.utc).timestamp() * 1000)
+                        oldest_timestamp = int(datetime.datetime.now(
+                            datetime.timezone.utc).timestamp() * 1000)
                     else:
                         oldest_datetime = oldest_income.time
-                        oldest_timestamp = int(oldest_datetime.timestamp() * 1000)
-                        logger.warning(f'Synced trades before {oldest_datetime}')
+                        oldest_timestamp = int(
+                            oldest_datetime.timestamp() * 1000)
+                        logger.warning(
+                            f'Synced trades before {oldest_datetime}')
 
-                    exchange_incomes = self.rest_manager.futures_income_history(**{'limit': 1000, 'endTime': oldest_timestamp - 1})
+                    exchange_incomes = self.rest_manager.futures_income_history(
+                        **{'limit': 1000, 'endTime': oldest_timestamp - 1})
+                    logger.info(
+                        f"Length of older trades fetched up to {oldest_timestamp}: {len(exchange_incomes)}")
                     incomes = []
                     for exchange_income in exchange_incomes:
                         income = Income(symbol=exchange_income['symbol'],
                                         asset=exchange_income['asset'],
                                         type=exchange_income['incomeType'],
-                                        income=float(exchange_income['income']),
+                                        income=float(
+                                            exchange_income['income']),
                                         timestamp=exchange_income['time'],
                                         transaction_id=exchange_income['tranId'])
                         incomes.append(income)
                     self.repository.process_incomes(incomes)
-                    if len(exchange_incomes) < 1000:
+                    if len(exchange_incomes) < 1:
                         first_trade_reached = True
 
                 newest_trade_reached = False
@@ -80,24 +92,31 @@ class BinanceFutures:
                     newest_income = self.repository.get_newest_income()
                     if newest_income is None:
                         # API will return inclusive, don't want to return the newest record again
-                        newest_timestamp = int(datetime.datetime.now(datetime.timezone.utc).timestamp() * 1000)
+                        newest_timestamp = int(datetime.datetime.now(
+                            datetime.timezone.utc).timestamp() * 1000)
                     else:
                         newest_datetime = newest_income.time
-                        newest_timestamp = int(newest_datetime.timestamp() * 1000)
-                        logger.warning(f'Synced newer trades since {newest_datetime}')
+                        newest_timestamp = int(
+                            newest_datetime.timestamp() * 1000)
+                        logger.warning(
+                            f'Synced newer trades since {newest_datetime}')
 
-                    exchange_incomes = self.rest_manager.futures_income_history(**{'limit': 1000, 'startTime': newest_timestamp + 1})
+                    exchange_incomes = self.rest_manager.futures_income_history(
+                        **{'limit': 1000, 'startTime': newest_timestamp + 1})
+                    logger.info(
+                        f"Length of newer trades fetched from {newest_timestamp}: {len(exchange_incomes)}")
                     incomes = []
                     for exchange_income in exchange_incomes:
                         income = Income(symbol=exchange_income['symbol'],
                                         asset=exchange_income['asset'],
                                         type=exchange_income['incomeType'],
-                                        income=float(exchange_income['income']),
+                                        income=float(
+                                            exchange_income['income']),
                                         timestamp=exchange_income['time'],
                                         transaction_id=exchange_income['tranId'])
                         incomes.append(income)
                     self.repository.process_incomes(incomes)
-                    if len(exchange_incomes) < 1000:
+                    if len(exchange_incomes) < 1:
                         newest_trade_reached = True
 
                 logger.warning('Synced trades')
@@ -111,8 +130,10 @@ class BinanceFutures:
             try:
                 account = self.rest_manager.futures_account()
                 asset_balances = [AssetBalance(asset=asset['asset'],
-                                               balance=float(asset['walletBalance']),
-                                               unrealizedProfit=float(asset['unrealizedProfit'])
+                                               balance=float(
+                                                   asset['walletBalance']),
+                                               unrealizedProfit=float(
+                                                   asset['unrealizedProfit'])
                                                ) for asset in account['assets']]
                 balance = Balance(totalBalance=account['totalWalletBalance'],
                                   totalUnrealizedProfit=account['totalUnrealizedProfit'],
@@ -120,10 +141,13 @@ class BinanceFutures:
                 self.repository.process_balances(balance)
 
                 positions = [Position(symbol=position['symbol'],
-                                      entry_price=float(position['entryPrice']),
-                                      position_size=float(position['positionAmt']),
+                                      entry_price=float(
+                                          position['entryPrice']),
+                                      position_size=float(
+                                          position['positionAmt']),
                                       side=position['positionSide'],
-                                      unrealizedProfit=float(position['unrealizedProfit'])
+                                      unrealizedProfit=float(
+                                          position['unrealizedProfit'])
                                       ) for position in account['positions'] if position['positionSide'] != 'BOTH']
                 self.repository.process_positions(positions)
                 logger.warning('Synced account')
@@ -137,7 +161,8 @@ class BinanceFutures:
             orders = {}
             try:
                 for symbol in self.config.symbols:
-                    open_orders = self.rest_manager.futures_get_open_orders(**{'symbol': symbol})
+                    open_orders = self.rest_manager.futures_get_open_orders(
+                        **{'symbol': symbol})
                     orders[symbol] = []
                     for open_order in open_orders:
                         order = Order()
@@ -296,7 +321,8 @@ class BinanceFutures:
             if self.ws_manager.is_manager_stopping():
                 logger.debug('Stopping trade-stream processing...')
                 break
-            event = self.ws_manager.pop_stream_data_from_stream_buffer(stream_buffer_name=f"trades_{symbol}")
+            event = self.ws_manager.pop_stream_data_from_stream_buffer(
+                stream_buffer_name=f"trades_{symbol}")
             if event and 'event_type' in event and event['event_type'] == 'aggTrade':
                 logger.debug(event)
                 tick = Tick(symbol=event['symbol'],
