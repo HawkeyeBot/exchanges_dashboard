@@ -50,61 +50,23 @@ class BinanceFutures:
         sync_orders_thread.start()
 
     def sync_trades(self):
-        first_trade_reached = False
         while True:
             try:
                 counter = 0
-                while first_trade_reached is False and counter < 3:
-                    counter += 1
-                    oldest_income = self.repository.get_oldest_income()
-                    if oldest_income is None:
-                        # API will return inclusive, don't want to return the oldest record again
-                        oldest_timestamp = int(datetime.datetime.now(
-                            datetime.timezone.utc).timestamp() * 1000)
-                    else:
-                        oldest_datetime = oldest_income.time
-                        oldest_timestamp = int(
-                            oldest_datetime.timestamp() * 1000)
-                        logger.warning(
-                            f'Synced trades before {oldest_datetime}')
-
-                    exchange_incomes = self.rest_manager.futures_income_history(
-                        **{'limit': 1000, 'endTime': oldest_timestamp - 1})
-                    logger.info(
-                        f"Length of older trades fetched up to {oldest_timestamp}: {len(exchange_incomes)}")
-                    incomes = []
-                    for exchange_income in exchange_incomes:
-                        income = Income(symbol=exchange_income['symbol'],
-                                        asset=exchange_income['asset'],
-                                        type=exchange_income['incomeType'],
-                                        income=float(
-                                            exchange_income['income']),
-                                        timestamp=exchange_income['time'],
-                                        transaction_id=exchange_income['tranId'])
-                        incomes.append(income)
-                    self.repository.process_incomes(incomes)
-                    if len(exchange_incomes) < 1:
-                        first_trade_reached = True
-
                 newest_trade_reached = False
                 while newest_trade_reached is False and counter < 3:
                     counter += 1
                     newest_income = self.repository.get_newest_income()
                     if newest_income is None:
-                        # API will return inclusive, don't want to return the newest record again
-                        newest_timestamp = int(datetime.datetime.now(
-                            datetime.timezone.utc).timestamp() * 1000)
+                        # Binance started in September 2017, so no trade can be before that
+                        newest_timestamp = int(datetime.datetime.fromisoformat('2017-09-01 00:00:00').timestamp() * 1000)
                     else:
                         newest_datetime = newest_income.time
-                        newest_timestamp = int(
-                            newest_datetime.timestamp() * 1000)
-                        logger.warning(
-                            f'Synced newer trades since {newest_datetime}')
+                        newest_timestamp = int(newest_datetime.timestamp() * 1000)
+                        logger.warning(f'Synced newer trades since {newest_datetime}')
 
-                    exchange_incomes = self.rest_manager.futures_income_history(
-                        **{'limit': 1000, 'startTime': newest_timestamp + 1})
-                    logger.info(
-                        f"Length of newer trades fetched from {newest_timestamp}: {len(exchange_incomes)}")
+                    exchange_incomes = self.rest_manager.futures_income_history(**{'limit': 1000, 'startTime': newest_timestamp + 1})
+                    logger.info(f"Length of newer trades fetched from {newest_timestamp}: {len(exchange_incomes)}")
                     incomes = []
                     for exchange_income in exchange_incomes:
                         income = Income(symbol=exchange_income['symbol'],
