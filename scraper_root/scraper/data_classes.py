@@ -62,6 +62,7 @@ class Position:
     position_size: float
     unrealizedProfit: float
     side: str
+    initial_margin: float
 
 
 @dataclass

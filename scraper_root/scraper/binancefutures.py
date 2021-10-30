@@ -108,7 +108,8 @@ class BinanceFutures:
                                           position['positionAmt']),
                                       side=position['positionSide'],
                                       unrealizedProfit=float(
-                                          position['unrealizedProfit'])
+                                          position['unrealizedProfit']),
+                                      initial_margin=float(position['initialMargin'])
                                       ) for position in account['positions'] if position['positionSide'] != 'BOTH']
                 self.repository.process_positions(positions)
                 logger.warning('Synced account')

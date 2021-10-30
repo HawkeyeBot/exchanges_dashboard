@@ -63,6 +63,7 @@ class PositionEntity(_DECL_BASE):
     unrealizedProfit = Column(Float)
     entryPrice = Column(Float)
     quantity = Column(Float)
+    initialMargin = Column(Float)
 
 
 class CurrentPriceEntity(_DECL_BASE):

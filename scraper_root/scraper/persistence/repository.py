@@ -121,6 +121,7 @@ class Repository:
                 position_entity.quantity = position.position_size
                 position_entity.entryPrice = position.entry_price
                 position_entity.unrealizedProfit = position.unrealizedProfit
+                position_entity.initialMargin = position.initial_margin
                 session.add(position_entity)
             session.commit()
 
