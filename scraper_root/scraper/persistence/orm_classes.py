@@ -84,6 +84,7 @@ class IncomeEntity(_DECL_BASE):
     income = Column(Float)
     asset = Column(String)
     time = Column(DateTime)
+    timestamp = Column(Integer)
 
     __table_args__ = (
         #PrimaryKeyConstraint(transaction_id, sqlite_on_conflict='IGNORE'),

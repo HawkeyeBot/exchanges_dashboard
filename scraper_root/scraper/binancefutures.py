@@ -59,11 +59,10 @@ class BinanceFutures:
                     newest_income = self.repository.get_newest_income()
                     if newest_income is None:
                         # Binance started in September 2017, so no trade can be before that
-                        newest_timestamp = int(datetime.datetime.fromisoformat('2017-09-01 00:00:00').timestamp() * 1000)
+                        newest_timestamp = int(datetime.datetime.fromisoformat('2017-09-01 00:00:00+00:00').timestamp() * 1000)
                     else:
-                        newest_datetime = newest_income.time
-                        newest_timestamp = int(newest_datetime.timestamp() * 1000)
-                        logger.warning(f'Synced newer trades since {newest_datetime}')
+                        newest_timestamp = newest_income.timestamp
+                        logger.warning(f'Synced newer trades since {newest_timestamp}')
 
                     exchange_incomes = self.rest_manager.futures_income_history(**{'limit': 1000, 'startTime': newest_timestamp + 1})
                     logger.info(f"Length of newer trades fetched from {newest_timestamp}: {len(exchange_incomes)}")
@@ -83,7 +82,7 @@ class BinanceFutures:
 
                 logger.warning('Synced trades')
             except Exception as e:
-                logger.error(f'Failed to process balance: {e}')
+                logger.error(f'Failed to process trades: {e}')
 
             time.sleep(60)
 

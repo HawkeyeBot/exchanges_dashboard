@@ -139,18 +139,11 @@ class Repository:
             return result
 
     def process_incomes(self, incomes: List[Income]):
+        if len(incomes) == 0:
+            return
         with self.session() as session:
             logger.warning('Processing incomes')
 
-            # for income in incomes:
-            #    income_entity = IncomeEntity()
-            #    income_entity.income = income.income
-            #    income_entity.symbol = income.symbol
-            #    income_entity.time = datetime.utcfromtimestamp(
-            #        income.timestamp / 1000)
-            #    income_entity.incomeType = income.type
-            #    income_entity.asset = income.asset
-            #    income_entity.transaction_id = income.transaction_id
             session.execute(
                 IncomeEntity.__table__.insert(),
                 params=[{
@@ -159,11 +152,10 @@ class Repository:
                     "incomeType": income.type,
                     "income": income.income,
                     "asset": income.asset,
-                    "time": datetime.utcfromtimestamp(income.timestamp / 1000)}
+                    "time": datetime.utcfromtimestamp(income.timestamp / 1000),
+                    "timestamp": income.timestamp}
                     for income in incomes],
             )
-
-            # session.add(income_entity)
             session.commit()
 
     def process_orders(self, orders: Dict[str, List[Order]]):
