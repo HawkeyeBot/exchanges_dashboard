@@ -50,9 +50,37 @@ class BinanceFutures:
         sync_orders_thread.start()
 
     def sync_trades(self):
+        first_trade_reached = False
         while True:
             try:
                 counter = 0
+                while first_trade_reached is False and counter < 3:
+                    counter += 1
+                    oldest_income = self.repository.get_oldest_income()
+                    if oldest_income is None:
+                        # API will return inclusive, don't want to return the oldest record again
+                        oldest_timestamp = int(datetime.datetime.now(datetime.timezone.utc).timestamp() * 1000)
+                    else:
+                        oldest_timestamp = oldest_income.timestamp
+                        logger.warning(f'Synced trades before {oldest_timestamp}')
+
+                    exchange_incomes = self.rest_manager.futures_income_history(**{'limit': 1000, 'endTime': oldest_timestamp - 1})
+                    logger.info(f"Length of older trades fetched up to {oldest_timestamp}: {len(exchange_incomes)}")
+                    incomes = []
+                    for exchange_income in exchange_incomes:
+                        income = Income(symbol=exchange_income['symbol'],
+                                        asset=exchange_income['asset'],
+                                        type=exchange_income['incomeType'],
+                                        income=float(exchange_income['income']),
+                                        timestamp=exchange_income['time'],
+                                        transaction_id=exchange_income['tranId'])
+                        incomes.append(income)
+                    self.repository.process_incomes(incomes)
+                    if len(exchange_incomes) < 1:
+                        first_trade_reached = True
+
+                # WARNING: don't use forward-walking only, because binance only returns max 7 days when using forward-walking
+                # If this logic is ever changed, make sure that it's still able to retrieve all the account history
                 newest_trade_reached = False
                 while newest_trade_reached is False and counter < 3:
                     counter += 1
