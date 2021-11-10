@@ -67,22 +67,18 @@ class BybitDerivatives:
     def sync_account(self):
         while True:
             try:
-#                print('start sync account')
                 account = self.rest_manager.Wallet.Wallet_getBalance().result()
                 assets = account[0]['result']
-#                print (assets) #debug
                 asset_balances = [AssetBalance(asset=asset,
                                             balance=float(assets[asset]['wallet_balance']),
                                             unrealizedProfit=float(assets[asset]['unrealised_pnl'])
                                             ) for asset in assets]
-#                print(asset_balances) #debug
  
                 #bybit has no total assets balance, assuming USDT
                 balance = Balance(totalBalance=assets['USDT']['wallet_balance'],
                                   totalUnrealizedProfit=assets['USDT']['unrealised_pnl'],
                                   assets=asset_balances)
                 self.repository.process_balances(balance)
-#                print(balance) #debug
 
 #TODO
 #                positions = [Position(symbol=position['symbol'],
