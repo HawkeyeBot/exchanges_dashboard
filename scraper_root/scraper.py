@@ -5,6 +5,7 @@ from types import SimpleNamespace
 import hjson
 
 from scraper.binancefutures import BinanceFutures
+from scraper.bybitderivatives import BybitDerivatives
 from scraper_root.scraper.data_classes import ScraperConfig
 from scraper_root.scraper.persistence.repository import Repository
 
@@ -15,7 +16,7 @@ logging.basicConfig(
 
 
 if __name__ == '__main__':
-    config_file_path = os.environ['CONFIG_FILE']
+   config_file_path = os.environ['CONFIG_FILE']
     with open(config_file_path) as config_file:
         user_config = hjson.load(config_file, object_hook=lambda d: SimpleNamespace(**d))
 
@@ -31,7 +32,8 @@ if __name__ == '__main__':
     repository=Repository()
     if scraper_config.exchange == 'binance_futures':
         scraper = BinanceFutures(config=scraper_config, repository=repository)
+    elif scraper_config.exchange == 'bybit_derivatives':
+        scraper = BybitDerivatives(config=scraper_config, repository=repository)
     else:
         raise Exception(f'Exchange {user_config.exchange} not implemented')
-
     scraper.start()
