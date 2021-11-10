@@ -1,7 +1,11 @@
-// Copy this file to config.json in the root folder
+// Copy this file to config.json in the root folder   
+// supported: binance_futures, bybit_derivatives (NOTE: USDT_Perpetual only)
+// 'symbol' is used to check and display open trades for those symbols
+
 {
-  "exchange": "binance_futures", //Supported values: binance_futures
-  "api_key": "",
-  "api_secret": "",
-  "symbols": ["BTCUSDT", "ETHUSDT"]
-}
+    "exchange": "bybit_derivatives",
+    "api_key": "",
+    "api_secret": "",
+    "symbols": ["BTCUSDT", "ETHUSDT"]
+  }
+  
