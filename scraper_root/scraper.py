@@ -3,7 +3,6 @@ import os
 from types import SimpleNamespace
 
 import hjson
-
 from scraper.binancefutures import BinanceFutures
 from scraper.bybitderivatives import BybitDerivatives
 from scraper_root.scraper.data_classes import ScraperConfig
@@ -14,9 +13,8 @@ logging.basicConfig(
     level=logging.INFO,
     datefmt='%Y-%m-%d %H:%M:%S')
 
-
 if __name__ == '__main__':
-   config_file_path = os.environ['CONFIG_FILE']
+    config_file_path = os.environ['CONFIG_FILE']
     with open(config_file_path) as config_file:
         user_config = hjson.load(config_file, object_hook=lambda d: SimpleNamespace(**d))
 
