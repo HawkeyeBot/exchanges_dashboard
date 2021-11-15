@@ -50,6 +50,8 @@ class Repository:
                             rs = con.execute(
                                 f'SELECT sum("INCOME"."income") AS "sum" FROM "INCOME" WHERE "INCOME"."time" >= date(\'{day.strftime("%Y-%m-%d")}\')')
                             for row in rs:
+                                if row[0] is None:
+                                    continue
                                 income = float(row[0])
                                 daily_balance = DailyBalanceEntity()
                                 daily_balance.day = day
