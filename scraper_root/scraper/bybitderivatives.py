@@ -1,5 +1,4 @@
 import bybit
-#from BybitWebsocket import BybitWebsocket
 from pybit import WebSocket
 
 import datetime
@@ -8,9 +7,6 @@ import threading
 import time
 from typing import List
 from pprint import pprint
-
-import sys #remove
-sys.path.append('/home/mike/Documents/python/hoeckxer/exchanges_dashboard/') #remove
 
 from scraper_root.scraper.data_classes import AssetBalance, Position, ScraperConfig, Tick, Balance, Income, Order
 from scraper_root.scraper.persistence.repository import Repository
@@ -69,29 +65,21 @@ class BybitDerivatives:
     def sync_account(self):
         while True:
             try:
-#                print('start sync account')
                 account = self.rest_manager.Wallet.Wallet_getBalance().result()
                 assets = account[0]['result']
-#                print (assets) #debug
                 asset_balances = [AssetBalance(asset=asset,
                                             balance=float(assets[asset]['wallet_balance']),
                                             unrealizedProfit=float(assets[asset]['unrealised_pnl'])
                                             ) for asset in assets]
-#                print(asset_balances) #debug
  
                 #bybit has no total assets balance, assuming USDT
                 balance = Balance(totalBalance=assets['USDT']['wallet_balance'],
                                   totalUnrealizedProfit=assets['USDT']['unrealised_pnl'],
                                   assets=asset_balances)
                 self.repository.process_balances(balance)
-#                print(balance) #debug
-
 
                 for i in linearsymbols:
-#                    pprint (i) #debug
                     exchange_position = self.rest_manager.LinearPositions.LinearPositions_myPosition(symbol="{}".format(i)).result()
-                 #   account = exchange_incomes[0]['result']
-                #    pprint (exchange_incomes)
                     if exchange_position[0]['result'][0]['position_value'] != 0: #note: None = empty. 
                         positions = [Position(symbol=position['symbol'],
                                             entry_price=float(position['entry_price']),
@@ -179,7 +167,6 @@ class BybitDerivatives:
 
     def sync_trades(self):
         first_trade_reached = False
-#        print('start sync trades')
         while True:
             try:
                 counter = 0
@@ -200,7 +187,6 @@ class BybitDerivatives:
                             incomes = []
                             for exchange_income in exchange_incomes[0]['result']['data']:
                                 timestamp2=(exchange_income['created_at']*1000) #needed for repository.py
-#                                pprint (timestamp2)
                                 income = Income(symbol=exchange_income['symbol'],
                                                 asset='USDT',
                                                 type=exchange_income['exec_type'],
@@ -210,7 +196,6 @@ class BybitDerivatives:
                                                 transaction_id=exchange_income['order_id'])
                                 incomes.append(income)
                             self.repository.process_incomes(incomes)
-#                            pprint(income) #debug
                             if len(exchange_incomes) < 1:
                                 first_trade_reached = True
                         time.sleep(2)
