@@ -4,4 +4,3 @@ unicorn-fy==0.11.0
 SQLAlchemy==1.4.25
 hjson==3.0.2
 bybit==0.2.12
-pybit==1.3.2
