@@ -1,12 +1,9 @@
 import bybit
-from pybit import WebSocket
 
 import datetime
 import logging
 import threading
 import time
-from typing import List
-from pprint import pprint
 
 from scraper_root.scraper.data_classes import AssetBalance, Position, ScraperConfig, Tick, Balance, Income, Order
 from scraper_root.scraper.persistence.repository import Repository
