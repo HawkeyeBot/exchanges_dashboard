@@ -3,9 +3,9 @@
 // 'symbol' is used to check and display open trades for those symbols
 
 {
-    "exchange": "bybit_derivatives",
+    "exchange": "binance_futures",
     "api_key": "",
     "api_secret": "",
-    "symbols": ["BTCUSDT", "ETHUSDT"]
+    // "symbols": ["BTCUSDT", "ETHUSDT"] // Defining symbols is not needed when using binance_futures
   }
   
