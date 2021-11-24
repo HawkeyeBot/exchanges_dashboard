@@ -30,7 +30,7 @@ if __name__ == '__main__':
         scraper_config.symbols.append('BTCUSDT')
 
     scraper = None
-    repository=Repository()
+    repository = Repository()
     if scraper_config.exchange == 'binance_futures':
         scraper = BinanceFutures(config=scraper_config, repository=repository)
     elif scraper_config.exchange == 'bybit_derivatives':

@@ -148,28 +148,25 @@ class BinanceFutures:
 
     def sync_open_orders(self):
         while True:
-            orders = {}
-            for symbol in self.config.symbols:
-                try:
-                    open_orders = self.rest_manager.futures_get_open_orders(
-                        **{'symbol': symbol})
-                    orders[symbol] = []
-                    for open_order in open_orders:
-                        order = Order()
-                        order.symbol = open_order['symbol']
-                        order.price = float(open_order['price'])
-                        order.quantity = float(open_order['origQty'])
-                        order.side = open_order['side']
-                        order.position_side = open_order['positionSide']
-                        order.type = open_order['type']
-                        orders[symbol].append(order)
-                except Exception as e:
-                    logger.error(f'Failed to process open orders for symbol {symbol}: {e}')
+            orders = []
+            try:
+                open_orders = self.rest_manager.futures_get_open_orders()
+                for open_order in open_orders:
+                    order = Order()
+                    order.symbol = open_order['symbol']
+                    order.price = float(open_order['price'])
+                    order.quantity = float(open_order['origQty'])
+                    order.side = open_order['side']
+                    order.position_side = open_order['positionSide']
+                    order.type = open_order['type']
+                    orders.append(order)
+            except Exception as e:
+                logger.error(f'Failed to process open orders for symbol: {e}')
             self.repository.process_orders(orders)
 
             logger.warning('Synced orders')
 
-            time.sleep(20)
+            time.sleep(30)
 
     # def process_userdata(self):
     #     self.ws_manager.create_stream(channels="arr",

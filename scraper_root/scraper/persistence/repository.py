@@ -161,20 +161,19 @@ class Repository:
             )
             session.commit()
 
-    def process_orders(self, orders: Dict[str, List[Order]]):
+    def process_orders(self, orders: List[Order]):
         with self.session() as session:
             logger.debug('Processing orders')
             session.query(OrderEntity).delete()
 
-            for symbol in orders:
-                for order in orders[symbol]:
-                    order_entity = OrderEntity()
-                    order_entity.symbol = order.symbol
-                    order_entity.price = order.price
-                    order_entity.type = order.type
-                    order_entity.quantity = order.quantity
-                    order_entity.position_side = order.position_side
-                    order_entity.side = order.side
-                    order_entity.status = order.status
-                    session.add(order_entity)
+            for order in orders:
+                order_entity = OrderEntity()
+                order_entity.symbol = order.symbol
+                order_entity.price = order.price
+                order_entity.type = order.type
+                order_entity.quantity = order.quantity
+                order_entity.position_side = order.position_side
+                order_entity.side = order.side
+                order_entity.status = order.status
+                session.add(order_entity)
             session.commit()
