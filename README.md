@@ -23,7 +23,7 @@ This repository is meant to provide an easy-to-run (local) web-UI that provides 
 * Run `docker-compose up -d`
 * Go to https://localhost:3000
 
-| WARNING: If you change the config.json file, make sure you rebuild the container using `docker-compose build` or `docker-compose up -d --build` |
+| WARNING: If you change the config.json file, make sure you rebuild the container using `docker-compose up -d --build` |
 | --- |
 
 # Stopping the dashboard
