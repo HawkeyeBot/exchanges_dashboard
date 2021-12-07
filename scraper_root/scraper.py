@@ -5,6 +5,7 @@ from types import SimpleNamespace
 import hjson
 from scraper.binancefutures import BinanceFutures
 from scraper.bybitderivatives import BybitDerivatives
+from scraper_root.scraper.binancespot import BinanceSpot
 from scraper_root.scraper.data_classes import ScraperConfig
 from scraper_root.scraper.persistence.repository import Repository
 
@@ -33,6 +34,8 @@ if __name__ == '__main__':
     repository = Repository()
     if scraper_config.exchange == 'binance_futures':
         scraper = BinanceFutures(config=scraper_config, repository=repository)
+    if scraper_config.exchange == 'binance_spot':
+        scraper = BinanceSpot(config=scraper_config, repository=repository)
     elif scraper_config.exchange == 'bybit_derivatives':
         scraper = BybitDerivatives(config=scraper_config, repository=repository)
     else:

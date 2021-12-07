@@ -2,15 +2,16 @@ import logging
 import os
 import threading
 import time
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 from typing import List, Dict
 
-from sqlalchemy import create_engine, func, Table
+from sqlalchemy import create_engine, func, Table, asc, nulls_first
 from sqlalchemy.orm import sessionmaker
 
-from scraper_root.scraper.data_classes import Order, Tick, Position, Balance, Income
+from scraper_root.scraper.data_classes import Order, Tick, Position, Balance, Income, Trade
 from scraper_root.scraper.persistence.orm_classes import _DECL_BASE, CurrentPriceEntity, \
-    BalanceEntity, AssetBalanceEntity, PositionEntity, IncomeEntity, OrderEntity, DailyBalanceEntity
+    BalanceEntity, AssetBalanceEntity, PositionEntity, IncomeEntity, OrderEntity, DailyBalanceEntity, TradeEntity, \
+    TradedSymbolEntity, SymbolCheckEntity
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +90,10 @@ class Repository:
             session.commit()
             logger.debug(f'Tick processed: {tick}')
 
+    def get_current_price(self, symbol: str) -> CurrentPriceEntity:
+        with self.session() as session:
+            return session.query(CurrentPriceEntity).filter(CurrentPriceEntity.symbol == symbol).first()
+
     def process_balances(self, balance: Balance):
         with self.session() as session:
             logger.debug('Updating balances')
@@ -127,6 +132,32 @@ class Repository:
                 session.add(position_entity)
             session.commit()
 
+    def get_oldest_trade(self, symbol: str) -> TradeEntity:
+        with self.session() as session:
+            logger.debug('Getting oldest trade')
+            result = session.query(TradeEntity).filter(TradeEntity.symbol == symbol).order_by(
+                TradeEntity.time.asc()).first()
+            return result
+
+    def get_trades(self, symbol: str) -> TradeEntity:
+        with self.session() as session:
+            logger.debug(f'Getting all trades for {symbol}')
+            result = session.query(TradeEntity).filter(TradeEntity.symbol == symbol).all()
+            return result
+
+    def get_trades_by_asset(self, asset: str) -> TradeEntity:
+        with self.session() as session:
+            logger.debug(f'Getting all trades for asset {asset}')
+            result = session.query(TradeEntity).filter(TradeEntity.symbol.like(f'{asset}%')).all()
+            return result
+
+    def get_newest_trade(self, symbol: str) -> TradeEntity:
+        with self.session() as session:
+            logger.debug('Getting oldest trade')
+            result = session.query(TradeEntity).filter(TradeEntity.symbol == symbol).order_by(
+                TradeEntity.time.desc()).first()
+            return result
+
     def get_oldest_income(self) -> IncomeEntity:
         with self.session() as session:
             logger.debug('Getting oldest income')
@@ -161,6 +192,28 @@ class Repository:
             )
             session.commit()
 
+    def process_trades(self, trades: List[Trade]):
+        if len(trades) == 0:
+            return
+        with self.session() as session:
+            logger.warning('Processing trades')
+
+            session.execute(
+                TradeEntity.__table__.insert(),
+                params=[{
+                    "order_id": trade.order_id,
+                    "symbol": trade.symbol,
+                    "incomeType": trade.type,
+                    "asset": trade.asset,
+                    "quantity": trade.quantity,
+                    "price": trade.price,
+                    "side": trade.side,
+                    "time": datetime.utcfromtimestamp(trade.timestamp / 1000),
+                    "timestamp": trade.timestamp}
+                    for trade in trades],
+            )
+            session.commit()
+
     def process_orders(self, orders: List[Order]):
         with self.session() as session:
             logger.debug('Processing orders')
@@ -177,3 +230,66 @@ class Repository:
                 order_entity.status = order.status
                 session.add(order_entity)
             session.commit()
+
+    def is_symbol_traded(self, symbol: str) -> bool:
+        with self.session() as session:
+            logger.debug('Getting traded symbol')
+            query = session.query(TradedSymbolEntity).filter(TradedSymbolEntity.symbol == symbol)
+            return session.query(query.exists()).scalar()
+
+    def get_all_traded_symbols(self) -> List[str]:
+        with self.session() as session:
+            logger.debug('Getting all traded symbol')
+            return [e.symbol for e in session.query(TradedSymbolEntity).all()]
+
+    def get_traded_symbol(self, symbol: str) -> TradedSymbolEntity:
+        with self.session() as session:
+            logger.debug(f'Getting traded symbol for {symbol}')
+            return session.query(TradedSymbolEntity).filter(TradedSymbolEntity.symbol == symbol).first()
+
+    def process_traded_symbol(self, symbol: str):
+        with self.session() as session:
+            logger.debug('Processing traded symbol')
+            traded_symbol_entity = TradedSymbolEntity()
+            traded_symbol_entity.symbol = symbol
+            session.add(traded_symbol_entity)
+            session.commit()
+
+    def update_trades_last_downloaded(self, symbol: str):
+        with self.session() as session:
+            logger.debug('Updating trades last downloaded')
+            traded_symbol = session.query(TradedSymbolEntity).filter(TradedSymbolEntity.symbol == symbol).first()
+            traded_symbol.last_trades_downloaded = datetime.now()
+            session.commit()
+
+    def get_symbol_checks(self) -> List[SymbolCheckEntity]:
+        with self.session() as session:
+            logger.debug('Getting all symbol checks')
+            return [e.symbol for e in session.query(SymbolCheckEntity).all()]
+
+    def process_symbol_checked(self, symbol: str):
+        with self.session() as session:
+            existing_symbol_check = session.query(SymbolCheckEntity).filter(SymbolCheckEntity.symbol == symbol).first()
+            if existing_symbol_check is None:
+                existing_symbol_check = SymbolCheckEntity()
+                existing_symbol_check.symbol = symbol
+                session.add(existing_symbol_check)
+            existing_symbol_check.last_checked_datetime = datetime.now()
+            session.commit()
+
+    def get_next_traded_symbol(self) -> TradedSymbolEntity:
+        with self.session() as session:
+            # first check any of the open positions
+            open_positions = self.open_positions()
+            for open_position in open_positions:
+                position_symbol = open_position.symbol
+                traded_symbol = self.get_traded_symbol(position_symbol)
+                if traded_symbol.last_trades_downloaded < datetime.utcnow() + timedelta(minutes=5):
+                    # open positions are synced at least every 5 minutes
+                    return session.query(TradedSymbolEntity).filter(TradedSymbolEntity.symbol == position_symbol).first().symbol
+            next_symbol = session.query(TradedSymbolEntity).order_by(nulls_first(TradedSymbolEntity.last_trades_downloaded.asc())).first()
+            return next_symbol.symbol
+
+    def open_positions(self) -> List[PositionEntity]:
+        with self.session() as session:
+            return session.query(PositionEntity).all()

@@ -88,7 +88,41 @@ class IncomeEntity(_DECL_BASE):
     timestamp = Column(Integer)
 
     __table_args__ = (
-        #PrimaryKeyConstraint(transaction_id, sqlite_on_conflict='IGNORE'),
         (UniqueConstraint('transaction_id', sqlite_on_conflict='IGNORE')),
-
     )
+
+
+class TradeEntity(_DECL_BASE):
+    __tablename__ = 'Trade'
+    id = Column(Integer, primary_key=True)
+    registration_datetime = Column(DateTime, default=func.now())
+    order_id = Column(Integer, nullable=False,
+                               unique=True, sqlite_on_conflict_unique='IGNORE')
+    symbol = Column(String)
+    incomeType = Column(String)
+    asset = Column(String)
+    quantity = Column(Float)
+    price = Column(Float)
+    side = Column(String)
+    time = Column(DateTime)
+    timestamp = Column(Integer)
+
+    __table_args__ = (
+        (UniqueConstraint('order_id', sqlite_on_conflict='IGNORE')),
+    )
+
+
+class TradedSymbolEntity(_DECL_BASE):
+    __tablename__= 'TRADED_SYMBOL'
+    id = Column(Integer, primary_key=True)
+    registration_datetime = Column(DateTime, default=func.now())
+    symbol = Column(String, unique=True, nullable=False)
+    last_trades_downloaded = Column(DateTime)
+
+
+class SymbolCheckEntity(_DECL_BASE):
+    __tablename__ = 'CHECKED_SYMBOL'
+    id = Column(Integer, primary_key=True)
+    registration_datetime = Column(DateTime, default=func.now())
+    symbol = Column(String, unique=True, nullable=False, default=func.now())
+    last_checked_datetime = Column(DateTime, default=func.now())

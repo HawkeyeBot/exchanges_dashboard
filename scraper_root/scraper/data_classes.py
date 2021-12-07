@@ -75,6 +75,18 @@ class Income:
     transaction_id: int
 
 
+@dataclass
+class Trade:
+    symbol: str
+    asset: str
+    type: str
+    timestamp: float
+    order_id: int
+    quantity: float
+    price: float
+    side: str
+
+
 class OrderType(Enum):
     LIMIT = 'LIMIT'
     TAKE_PROFIT = 'TAKE_PROFIT'
