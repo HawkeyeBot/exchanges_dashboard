@@ -231,6 +231,11 @@ class Repository:
                 session.add(order_entity)
             session.commit()
 
+    def get_open_orders(self, symbol: str) -> List[OrderEntity]:
+        with self.session() as session:
+            logger.debug(f'Getting orders for {symbol}')
+            return session.query(OrderEntity).filter(OrderEntity.symbol == symbol).all()
+
     def is_symbol_traded(self, symbol: str) -> bool:
         with self.session() as session:
             logger.debug('Getting traded symbol')

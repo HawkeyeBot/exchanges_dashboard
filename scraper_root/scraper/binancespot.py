@@ -248,7 +248,8 @@ class BinanceSpot:
                                 for current_usd_price in current_usd_prices:
                                     symbol = current_usd_price['symbol']
                                     symbol_trades = self.repository.get_trades_by_asset(symbol)
-                                    if len(symbol_trades) > 0:
+                                    # little hack: assume no position if no orders open
+                                    if len(symbol_trades) > 0 and len(self.repository.get_open_orders(symbol)) > 0:
                                         position_price = self.calc_long_pprice(long_psize=position_size, trades=symbol_trades)
 
                                         asset_usd_balance = position_size * position_price
