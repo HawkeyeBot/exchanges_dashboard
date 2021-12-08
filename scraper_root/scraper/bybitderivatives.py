@@ -96,10 +96,9 @@ class BybitDerivatives:
     def sync_open_orders(self):
         while True:
             try:
-                orders = {}
+                orders = []
                 for symbol in self.config.symbols:
                     open_orders = self.rest_manager.LinearOrder.LinearOrder_query(symbol="{}".format(symbol)).result()
-                    orders = []
                     for open_order in open_orders[0]['result']:
                         order = Order()
                         order.symbol = open_order['symbol']
