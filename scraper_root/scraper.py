@@ -38,6 +38,8 @@ if __name__ == '__main__':
         scraper = BinanceSpot(config=scraper_config, repository=repository)
     elif scraper_config.exchange == 'bybit_derivatives':
         scraper = BybitDerivatives(config=scraper_config, repository=repository)
-    else:
-        raise Exception(f'Exchange {user_config.exchange} not implemented')
-    scraper.start()
+
+    try:
+        scraper.start()
+    except Exception as e:
+        logger.error(f"Failed to start exchange: {e}")
