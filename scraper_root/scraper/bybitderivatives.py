@@ -99,7 +99,7 @@ class BybitDerivatives:
                 orders = {}
                 for symbol in self.config.symbols:
                     open_orders = self.rest_manager.LinearOrder.LinearOrder_query(symbol="{}".format(symbol)).result()
-                    orders[symbol] = []
+                    orders = []
                     for open_order in open_orders[0]['result']:
                         order = Order()
                         order.symbol = open_order['symbol']
@@ -109,7 +109,7 @@ class BybitDerivatives:
                         #bybit has no position side, assuming side
                         order.position_side = open_order['side']
                         order.type = open_order['order_type']
-                        orders[symbol].append(order)
+                        orders.append(order)
                 self.repository.process_orders(orders)
                 logger.warning('Synced orders')
             except Exception as e:
