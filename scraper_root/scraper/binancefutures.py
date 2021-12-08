@@ -23,8 +23,8 @@ class BinanceFutures:
         self.ws_manager = BinanceWebSocketApiManager(exchange=exchange, throw_exception_if_unrepairable=True,
                                                      warn_on_update=False)
 
-        self.rest_manager = BinanceRestApiManager(
-            self.api_key, api_secret=self.secret)
+        self.rest_manager = BinanceRestApiManager(self.api_key, api_secret=self.secret)
+        self.tick_symbols = []
 
     def start(self):
         print('Starting binance futures scraper')
@@ -140,6 +140,7 @@ class BinanceFutures:
                                       initial_margin=float(position['initialMargin'])
                                       ) for position in account['positions'] if position['positionSide'] != 'BOTH']
                 self.repository.process_positions(positions)
+                [self.add_to_ticker(position.symbol) for position in positions if position.position_size > 0.0]
                 logger.warning('Synced account')
             except Exception as e:
                 logger.error(f'Failed to process balance: {e}')
@@ -168,134 +169,11 @@ class BinanceFutures:
 
             time.sleep(30)
 
-    # def process_userdata(self):
-    #     self.ws_manager.create_stream(channels="arr",
-    #                                   markets="!userData",
-    #                                   stream_buffer_name="userdata",
-    #                                   api_key=self.api_key,
-    #                                   api_secret=self.secret,
-    #                                   output="UnicornFy")
-    #     while True:
-    #         if self.ws_manager.is_manager_stopping():
-    #             logger.debug('Stopping userdata-stream processing...')
-    #             break
-    #         event = self.ws_manager.pop_stream_data_from_stream_buffer(stream_buffer_name="userdata")
-    #         if event is False:
-    #             time.sleep(0.01)# The pop_stream_data_from_stream_buffer is non-blocking, so need to sleep to prevent eating up CPU
-    #         else:
-    #             logger.debug(f'Userdata event: {event}')
-    #             try:
-    #                 if event["event_type"] == "ACCOUNT_UPDATE":
-    #                     queue_item = {}
-    #                     positions = SymbolPositions(symbol='')
-    #                     if "balances" in event:
-    #                         queue_item['balances'] = []
-    #                         for i in event["balances"]:
-    #                             asset_balance = AssetBalance(asset=i['asset'], balance=float(i['wallet_balance']))
-    #                             queue_item['balances'].append(asset_balance)
-    #                     if "positions" in event:
-    #                         for i in event["positions"]:
-    #                             new_position = Position(i["symbol"], float(i["entry_price"]),
-    #                                                     float(i["position_amount"]), float(i["upnl"]))
-    #                             positions.symbol = i['symbol']
-    #                             if i["position_side"] == "LONG":
-    #                                 positions.long = new_position
-    #                             elif i["position_side"] == "SHORT":
-    #                                 positions.short = new_position
-    #                             else:
-    #                                 logger.debug(f'Ignoring unsupported position side BOTH {new_position}')
-    #                         if positions.symbol == '':
-    #                             logger.warning(f'Symbol on account update not recognized in event {event}')
-    #                             continue
-    #                         else:
-    #                             queue_item['positions'] = positions
-    #                     if 'positions' in queue_item and 'balances' in queue_item:
-    #                         logger.info('PROCESSED ACCOUNT_UPDATE EVENT')
-    #                         # self.userdata_queues[positions.symbol].put(queue_item)
-    #                     else:
-    #                         logger.warning(f'Balance or positions not filled for account_update in queue_item {queue_item}')
-    #                 elif event['event_type'] == 'ORDER_TRADE_UPDATE':
-    #                     if event["order_price_type"] == "MARKET":
-    #                         order = MarketOrder(id=int(event["order_id"]),
-    #                                             symbol=event["symbol"],
-    #                                             quantity=float(event["order_quantity"]),
-    #                                             side=event["side"],
-    #                                             position_side=event["position_side"],
-    #                                             status=OrderStatus[event["current_order_status"]],
-    #                                             price=float(event["order_avg_price"]))
-    #                     elif event["order_price_type"] == "LIMIT":
-    #                         order = LimitOrder(id=int(event["order_id"]),
-    #                                            symbol=event["symbol"],
-    #                                            quantity=float(event["order_quantity"]),
-    #                                            side=event["side"],
-    #                                            position_side=event["position_side"],
-    #                                            status=OrderStatus(event["current_order_status"]),
-    #                                            price=float(event["order_price"]))
-    #                     elif event["order_price_type"] == "STOP":
-    #                         order = StopLossOrder(id=int(event["order_id"]),
-    #                                               symbol=event["symbol"],
-    #                                               quantity=float(event["order_quantity"]),
-    #                                               side=event["side"],
-    #                                               position_side=event["position_side"],
-    #                                               status=OrderStatus[event["current_order_status"]],
-    #                                               price=float(event["order_price"]),
-    #                                               stop_price=float(event["order_stop_price"]))
-    #                     elif event["order_price_type"] == "TAKE_PROFIT":
-    #                         order = TakeProfitOrder(id=int(event["order_id"]),
-    #                                                 symbol=event["symbol"],
-    #                                                 quantity=float(event["order_quantity"]),
-    #                                                 side=event["side"],
-    #                                                 position_side=event["position_side"],
-    #                                                 status=OrderStatus[event["current_order_status"]],
-    #                                                 price=float(event["order_price"]),
-    #                                                 stop_price=float(event["order_stop_price"]))
-    #                     elif event["order_price_type"] == "STOP_MARKET":
-    #                         order = StopLossMarketOrder(id=int(event["order_id"]),
-    #                                                     symbol=event["symbol"],
-    #                                                     quantity=float(event["order_quantity"]),
-    #                                                     side=event["side"],
-    #                                                     position_side=event["position_side"],
-    #                                                     status=OrderStatus[event["current_order_status"]],
-    #                                                     price=float(event["order_avg_price"]),
-    #                                                     stop_price=float(event["order_stop_price"]))
-    #                     elif event["order_price_type"] == "TAKE_PROFIT_MARKET":
-    #                         order = TakeProfitMarketOrder(id=int(event["order_id"]),
-    #                                                       symbol=event["symbol"],
-    #                                                       quantity=float(event["order_quantity"]),
-    #                                                       side=event["side"],
-    #                                                       position_side=event["position_side"],
-    #                                                       status=OrderStatus[event["current_order_status"]],
-    #                                                       price=float(event["order_avg_price"]),
-    #                                                       stop_price=float(event["order_stop_price"]))
-    #                     # ToDo: Double-check if the values and fields are correct
-    #                     elif event["order_price_type"] == "TRAILING_STOP_MARKET":
-    #                         order = TrailingStopLossOrder(id=int(event["order_id"]),
-    #                                                       symbol=event["symbol"],
-    #                                                       quantity=float(event["order_quantity"]),
-    #                                                       side=event["side"],
-    #                                                       position_side=event["position_side"],
-    #                                                       status=OrderStatus[event["current_order_status"]],
-    #                                                       price=float(event["order_price"]))
-    #                     # ToDo: Double-check if any other field is required
-    #                     elif event["order_price_type"] == "LIQUIDATION":
-    #                         order = LiquidationOrder(id=int(event["order_id"]),
-    #                                                  symbol=event["symbol"],
-    #                                                  quantity=float(event["order_quantity"]),
-    #                                                  side=event["side"],
-    #                                                  position_side=event["position_side"],
-    #                                                  status=OrderStatus[event["current_order_status"]])
-    #                     else:
-    #                         logger.error("Order is None: " + event)
-    #                         continue
-    #
-    #                     if order.status == OrderStatus.PARTIALLY_FILLED:
-    #                         order.quantity = order.quantity - float(event["last_executed_quantity"])
-    #                     logger.info("PROCESSED ORDER UPDATE")
-    #                     # self.order_updates_queue.put(order)
-    #                 else:
-    #                     logger.debug(f'Not processing event {event}')
-    #             except Exception as e:
-    #                 logger.error(f'Failed to process userdata event: {e}')
+    def add_to_ticker(self, symbol: str):
+        if symbol not in self.tick_symbols:
+            symbol_trade_thread = threading.Thread(
+                name=f'trade_thread_{symbol}', target=self.process_trades, args=(symbol,), daemon=True)
+            symbol_trade_thread.start()
 
     def process_trades(self, symbol: str):
         # stream buffer is set to length 1, because we're only interested in the most recent tick
@@ -304,7 +182,7 @@ class BinanceFutures:
                                       stream_buffer_name=f"trades_{symbol}",
                                       output="UnicornFy",
                                       stream_buffer_maxlen=1)
-        logger.info(f"Trade stream started")
+        logger.info(f"Trade stream started for {symbol}")
         while True:
             if self.ws_manager.is_manager_stopping():
                 logger.debug('Stopping trade-stream processing...')
