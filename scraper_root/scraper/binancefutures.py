@@ -196,7 +196,7 @@ class BinanceFutures:
                 event = self.ws_manager.pop_stream_data_from_stream_buffer(
                     stream_buffer_name=f"trades_{symbol}")
                 if event and 'event_type' in event and event['event_type'] == 'aggTrade':
-                    logger.info(event)
+                    logger.debug(event)
                     tick = Tick(symbol=event['symbol'],
                                 price=float(event['price']),
                                 qty=float(event['quantity']),
