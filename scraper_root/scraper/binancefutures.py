@@ -140,7 +140,16 @@ class BinanceFutures:
                                       initial_margin=float(position['initialMargin'])
                                       ) for position in account['positions'] if position['positionSide'] != 'BOTH']
                 self.repository.process_positions(positions)
-                [self.add_to_ticker(position.symbol) for position in positions if position.position_size > 0.0]
+                for position in positions:
+                    if position.position_size > 0.0:
+                        symbol = position.symbol
+                        trade = self.rest_manager.get_recent_trades(**{'limit': 1, 'symbol': symbol})[0]
+                        tick = Tick(symbol=symbol,
+                                    price=float(trade['price']),
+                                    qty=float(trade['qty']),
+                                    timestamp=trade['time'])
+                        self.repository.process_tick(tick)
+                # [self.add_to_ticker(position.symbol) for position in positions if position.position_size > 0.0]
                 logger.warning('Synced account')
             except Exception as e:
                 logger.error(f'Failed to process balance: {e}')
