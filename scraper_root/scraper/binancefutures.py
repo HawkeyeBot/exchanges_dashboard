@@ -202,7 +202,7 @@ class BinanceFutures:
                                 qty=float(event['quantity']),
                                 timestamp=int(event['trade_time']))
                     logger.debug(f"Processed tick for {tick.symbol}")
-                    self.repository.process_tick(tick)
+                    # self.repository.process_tick(tick)
             except Exception as e:
                 logger.warning(f'Error processing tick: {e}')
             # Price update every 5 seconds is fast enough
