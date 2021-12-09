@@ -144,7 +144,7 @@ class BinanceFutures:
                     if position.position_size > 0.0:
                         try:
                             symbol = position.symbol
-                            trade = self.rest_manager.get_recent_trades(**{'limit': 1, 'symbol': symbol})[0]
+                            trade = self.rest_manager.futures_recent_trades(**{'limit': 1, 'symbol': symbol})[0]
                             tick = Tick(symbol=symbol,
                                         price=float(trade['price']),
                                         qty=float(trade['qty']),
