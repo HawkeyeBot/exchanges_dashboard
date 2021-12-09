@@ -176,6 +176,11 @@ class BinanceFutures:
             symbol_trade_thread.start()
 
     def process_trades(self, symbol: str):
+        if symbol in self.tick_symbols:
+            logger.error(f'Already listening to ticks for {symbol}, not starting new processing!')
+            return
+        self.tick_symbols.append(symbol)
+
         # stream buffer is set to length 1, because we're only interested in the most recent tick
         self.ws_manager.create_stream(channels=['aggTrade'],
                                       markets=symbol,
@@ -191,7 +196,7 @@ class BinanceFutures:
                 event = self.ws_manager.pop_stream_data_from_stream_buffer(
                     stream_buffer_name=f"trades_{symbol}")
                 if event and 'event_type' in event and event['event_type'] == 'aggTrade':
-                    logger.debug(event)
+                    logger.info(event)
                     tick = Tick(symbol=event['symbol'],
                                 price=float(event['price']),
                                 qty=float(event['quantity']),
