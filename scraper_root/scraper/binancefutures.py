@@ -151,7 +151,7 @@ class BinanceFutures:
                                         timestamp=trade['time'])
                             self.repository.process_tick(tick)
                         except Exception as e:
-                            logger.error(f'Failed to process tick {tick}: {e}')
+                            logger.error(f'Failed to process tick: {e}')
                 # [self.add_to_ticker(position.symbol) for position in positions if position.position_size > 0.0]
                 logger.warning('Synced account')
             except Exception as e:
