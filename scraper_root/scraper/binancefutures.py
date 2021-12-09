@@ -184,19 +184,22 @@ class BinanceFutures:
                                       stream_buffer_maxlen=1)
         logger.info(f"Trade stream started for {symbol}")
         while True:
-            if self.ws_manager.is_manager_stopping():
-                logger.debug('Stopping trade-stream processing...')
-                break
-            event = self.ws_manager.pop_stream_data_from_stream_buffer(
-                stream_buffer_name=f"trades_{symbol}")
-            if event and 'event_type' in event and event['event_type'] == 'aggTrade':
-                logger.debug(event)
-                tick = Tick(symbol=event['symbol'],
-                            price=float(event['price']),
-                            qty=float(event['quantity']),
-                            timestamp=int(event['trade_time']))
-                logger.debug(f"Processed tick for {tick.symbol}")
-                self.repository.process_tick(tick)
+            try:
+                if self.ws_manager.is_manager_stopping():
+                    logger.debug('Stopping trade-stream processing...')
+                    break
+                event = self.ws_manager.pop_stream_data_from_stream_buffer(
+                    stream_buffer_name=f"trades_{symbol}")
+                if event and 'event_type' in event and event['event_type'] == 'aggTrade':
+                    logger.debug(event)
+                    tick = Tick(symbol=event['symbol'],
+                                price=float(event['price']),
+                                qty=float(event['quantity']),
+                                timestamp=int(event['trade_time']))
+                    logger.debug(f"Processed tick for {tick.symbol}")
+                    self.repository.process_tick(tick)
+            except Exception as e:
+                logger.warning(f'Error processing tick: {e}')
             # Price update every 5 seconds is fast enough
             time.sleep(5)
         logger.warning('Stopped trade-stream processing')
