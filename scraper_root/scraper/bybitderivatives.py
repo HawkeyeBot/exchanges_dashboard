@@ -91,17 +91,16 @@ class BybitDerivatives:
             for i in linearsymbols:
                 exchange_position = self.rest_manager2.my_position(symbol="{}".format(i))
                 if exchange_position['result'][0]['position_value'] !=0: 
-                    for item in exchange_position['result']:
-                        positions = [Position(symbol=position['symbol'],
-                                    entry_price=float(
-                                        position['entry_price']),
-                                    position_size=float(
-                                        position['position_value']),
-                                    side=position['side'],
-                                    unrealizedProfit=float(
-                                        position['unrealised_pnl']),
-                                    initial_margin=float(position['position_margin'])
-                                    ) for position in exchange_position['result'] if position['side'] == 'Buy']
+                    item = exchange_position['result'][0]
+                    if item['side'] == 'Buy':
+        #                print (item['symbol'])
+                        positions.append(Position(symbol=item['symbol'],
+                                    entry_price=float(item['entry_price']),
+                                    position_size=float(item['position_value']),
+                                    side='LONG', # make it the same as binance data, bybit data is : item['side'],
+                                    unrealizedProfit=float(item['unrealised_pnl']),
+                                    initial_margin=float(item['position_margin']))
+                        )
             self.repository.process_positions(positions)
             time.sleep(2)
             logger.warning('Synced positions')
@@ -125,9 +124,9 @@ class BybitDerivatives:
                             order.symbol = item['symbol']
                             order.price = float(item['price'])
                             order.quantity = float(item['qty'])
-                            order.side = item['side']
+                            order.side = item['side'].upper() # upper() to make it the same as binance
                             #bybit has no 'position side', assuming 'side'
-                            order.position_side = item['side']
+                            order.position_side = item['side'].upper() # upper() to make it the same as binance
                             order.type = item['order_type']
                             orders.append(order)
 #                            print (orders)                            
