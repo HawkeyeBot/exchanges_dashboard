@@ -93,17 +93,21 @@ class BybitDerivatives:
                 positions = []
                 for i in linearsymbols:
                     exchange_position = self.rest_manager2.my_position(symbol="{}".format(i))
-                    if exchange_position['result'][0]['position_value'] !=0: 
-                        item = exchange_position['result'][0]
-                        if item['side'] == 'Buy':
-                            positions.append(Position(symbol=item['symbol'],
-                                        entry_price=float(item['entry_price']),
-                                        position_size=float(item['position_value']),
-                                        side='LONG', # make it the same as binance data, bybit data is : item['side'],
-                                        unrealizedProfit=float(item['unrealised_pnl']),
-                                        initial_margin=float(item['position_margin']))
+                    for x in exchange_position['result']:
+                        if x['position_value'] !=0: #filter only items that have positions
+                            if x['side'] == "Buy": #recode buy / sell into long / short
+                                side = "LONG"
+                            else:
+                                side = "SHORT"
+                            
+                            positions.append(Position(symbol=x['symbol'],
+                                        entry_price=float(x['entry_price']),
+                                        position_size=float(x['position_value']),
+                                        side=side, # make it the same as binance data, bybit data is : item['side'],
+                                        unrealizedProfit=float(x['unrealised_pnl']),
+                                        initial_margin=float(x['position_margin']))
                             )
-                self.repository.process_positions(positions)                
+                self.repository.process_positions(positions)                 
                 logger.warning('Synced positions')                
                 time.sleep(120)
             except Exception as e:
@@ -172,21 +176,23 @@ class BybitDerivatives:
 #                 print(data)
 
     def process_trades(self, symbol: str):
-        try:
-            event = self.rest_manager.LinearMarket.LinearMarket_trading(symbol="{}".format(symbol), limit="1").result()
+        while True:
             logger.info(f"Trade stream started")
-            while True:
-                event1 = event[0]['result']          
-                tick = Tick(symbol=event1[0]['symbol'],
-                                price=float(event1[0]['price']),
-                                qty=float(event1[0]['qty']),
-                                timestamp=int(event1[0]['trade_time_ms']))
-                logger.debug(f"Processed tick for {tick.symbol}")
-                self.repository.process_tick(tick)
+            try:
+                for i in linearsymbols:
+                    event = self.rest_manager.LinearMarket.LinearMarket_trading(symbol="{}".format(i)).result()
+                    event1 = event[0]['result']          
+                    tick = Tick(symbol=event1[0]['symbol'],
+                                    price=float(event1[0]['price']),
+                                    qty=float(event1[0]['qty']),
+                                    timestamp=int(event1[0]['trade_time_ms']))
+                    # logger.info(f"Processed tick for {tick.symbol}")
+                    self.repository.process_tick(tick)
+                logger.info(f"Processed ticks")
                 time.sleep(120)
-        except Exception as e:                    
-            logger.warning(f'Failed to process trades: {e}')
-            pass
+            except Exception as e:                    
+                logger.warning(f'Failed to process trades: {e}')
+                pass
 
     def sync_trades(self):
         while True:
