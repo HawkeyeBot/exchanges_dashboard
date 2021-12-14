@@ -102,7 +102,7 @@ class BybitDerivatives:
                             
                             positions.append(Position(symbol=x['symbol'],
                                         entry_price=float(x['entry_price']),
-                                        position_size=float(x['position_value']),
+                                        position_size=float(x['size']),
                                         side=side, # make it the same as binance data, bybit data is : item['side'],
                                         unrealizedProfit=float(x['unrealised_pnl']),
                                         initial_margin=float(x['position_margin']))
