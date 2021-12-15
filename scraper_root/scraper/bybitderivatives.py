@@ -208,40 +208,62 @@ class BybitDerivatives:
                     pass
 
     def sync_trades(self):
-        while True:
-            #fill table with 50 pages x 50 limit. TODO: full all-time history data and limit to one? page after inital fill
-            for i in linearsymbols:    
-                try: #when there is a new symbol, pnl request fails with an error and scripts stops. so in a try and pass.
-                    exchange_pnl = self.rest_manager2.closed_profit_and_loss(symbol="{}".format(i), limit='50')
-                #    pprint (exchange_pnl)
-                    if not exchange_pnl['result']['data']: #note: None = empty. 
+        x=0 #not pythonic but it works        
+        while True:            
+            if x == 0:
+                #fill table on first run with 50 pages x 50 limit. TODO: full all-time history data and limit to one? page after inital fill
+                for i in linearsymbols:    
+                    try: #when there is a new symbol, pnl request fails with an error and scripts stops. so in a try and pass.
+                        exchange_pnl = self.rest_manager2.closed_profit_and_loss(symbol="{}".format(i), limit='50')
+                    #    pprint (exchange_pnl)
+                        if not exchange_pnl['result']['data']: #note: None = empty. 
+                            pass
+                        else:
+                            for page in range(1,50):
+                                exchange_pnl = self.rest_manager2.closed_profit_and_loss(symbol="{}".format(i), limit='50', page="{}".format(page))
+                                # print (exchange_pnl["result"]['data'])
+                                if not exchange_pnl['result']['data']: #note: None = empty. 
+                                    pass
+                                else:
+                                    incomes = []
+                                    for exchange_income in exchange_pnl["result"]['data']:
+                                        timestamp2=(exchange_income['created_at']*1000) # *1000 needed for repository.py
+                                        income = Income(symbol=exchange_income['symbol'],
+                                                        asset='USDT',
+                                                        type=exchange_income['exec_type'],
+                                                        income=float(exchange_income['closed_pnl']),
+                                                        #timestamp=exchange_income['created_at'],
+                                                        timestamp=timestamp2,
+                                                        transaction_id=exchange_income['order_id'])
+                                        incomes.append(income)
+                                    self.repository.process_incomes(incomes)
+                            time.sleep(5) # pause to not overload the api limit
+                    except Exception:
                         pass
-                    else:
-                        for page in range(1,50):
-                            exchange_pnl = self.rest_manager2.closed_profit_and_loss(symbol="{}".format(i), limit='50', page="{}".format(page))
-                            # print (exchange_pnl["result"]['data'])
-                            if not exchange_pnl['result']['data']: #note: None = empty. 
-                                pass
-                            else:
-                                incomes = []
-                                for exchange_income in exchange_pnl["result"]['data']:
-                                    timestamp2=(exchange_income['created_at']*1000) # *1000 needed for repository.py
-                                    income = Income(symbol=exchange_income['symbol'],
-                                                    asset='USDT',
-                                                    type=exchange_income['exec_type'],
-                                                    income=float(exchange_income['closed_pnl']),
-                                                    #timestamp=exchange_income['created_at'],
-                                                    timestamp=timestamp2,
-                                                    transaction_id=exchange_income['order_id'])
-                                    incomes.append(income)
-                                self.repository.process_incomes(incomes)
+                x += 1
+                logger.info('Synced initial trades')
+            else:   
+                for i in linearsymbols:    
+                    try: #when there is a new symbol, pnl request fails with an error and scripts stops. so in a try and pass.
+                        exchange_pnl = self.rest_manager2.closed_profit_and_loss(symbol="{}".format(i), limit='50')
+                    #    pprint (exchange_pnl)
+                        if not exchange_pnl['result']['data']: #note: None = empty. 
+                            pass
+                        else:
+                            incomes = []
+                            for exchange_income in exchange_pnl["result"]['data']:
+                                timestamp2=(exchange_income['created_at']*1000) # *1000 needed for repository.py
+                                income = Income(symbol=exchange_income['symbol'],
+                                                asset='USDT',
+                                                type=exchange_income['exec_type'],
+                                                income=float(exchange_income['closed_pnl']),
+                                                #timestamp=exchange_income['created_at'],
+                                                timestamp=timestamp2,
+                                                transaction_id=exchange_income['order_id'])
+                                incomes.append(income)
+                            self.repository.process_incomes(incomes)
                         time.sleep(5) # pause to not overload the api limit
-                except Exception:
-                    pass
-
-            logger.warning('Synced trades')
-
+                    except Exception:
+                        pass
+                logger.warning('Synced trades')
             time.sleep(120)
-        
-#end main thread after 10s
-#time.sleep(10)
