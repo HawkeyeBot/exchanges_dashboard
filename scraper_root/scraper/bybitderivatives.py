@@ -43,6 +43,10 @@ class BybitDerivatives:
                     linearsymbols.append(i['alias'])
         except Exception as e:
             logger.error(f'Failed to pull linearsymbols: {e}')
+        
+        #globals  
+        global activesymbols
+        activesymbols = [] #list
 
     def start(self):
         print('Starting Bybit Derivatives scraper')
@@ -81,7 +85,7 @@ class BybitDerivatives:
                                   assets=asset_balances)
                 self.repository.process_balances(balance)
                 logger.warning('Synced balance')
-                time.sleep(120)
+                time.sleep(100)
             except Exception as e:
                 logger.error(f'Failed to process balance: {e}')
                 pass
@@ -90,6 +94,8 @@ class BybitDerivatives:
     def sync_positions(self):
         while True:
             try:
+                global activesymbols
+                activesymbols = ["BTCUSDT"]
                 positions = []
                 for i in linearsymbols:
                     exchange_position = self.rest_manager2.my_position(symbol="{}".format(i))
@@ -98,8 +104,9 @@ class BybitDerivatives:
                             if x['side'] == "Buy": #recode buy / sell into long / short
                                 side = "LONG"
                             else:
-                                side = "SHORT"
-                            
+                                side = "SHORT"                            
+                            activesymbols.append(x['symbol'])
+                                                        
                             positions.append(Position(symbol=x['symbol'],
                                         entry_price=float(x['entry_price']),
                                         position_size=float(x['size']),
@@ -108,8 +115,9 @@ class BybitDerivatives:
                                         initial_margin=float(x['position_margin']))
                             )
                 self.repository.process_positions(positions)                 
-                logger.warning('Synced positions')                
-                time.sleep(120)
+                logger.warning('Synced positions')  
+                # logger.info(f'test: {activesymbols}')
+                time.sleep(240)
             except Exception as e:
                 logger.error(f'Failed to process positions: {e}')
                 pass
@@ -118,32 +126,33 @@ class BybitDerivatives:
     def sync_open_orders(self):
         while True: 
             orders = []
-            for i in linearsymbols:                
-                try: #when there a new symbols a pnl request fails with an error and scripts stops. so in a try and pass.
-                    open_orders = self.rest_manager2.get_active_order(symbol="{}".format(i), order_status="New")
-                    if not open_orders['result']['data']: #note: None = empty. 
+            if len(activesymbols) > 1: # if activesymbols has more than 1 item do stuff
+                for i in activesymbols:                
+                    try: #when there a new symbols a pnl request fails with an error and scripts stops. so in a try and pass.
+                        open_orders = self.rest_manager2.get_active_order(symbol="{}".format(i), order_status="New")
+                        if not open_orders['result']['data']: #note: None = empty. 
+                            pass
+                        else:                        
+                            for item in open_orders["result"]['data']:                            
+                                order = Order()
+                                order.symbol = item['symbol']
+                                order.price = float(item['price'])
+                                order.quantity = float(item['qty'])
+                                order.side = item['side'].upper() # upper() to make it the same as binance
+                                #bybit has no 'position side', assuming 'side'
+                                if item['side'] == "Buy": #recode buy / sell into long / short
+                                    side = "SHORT" #note: reversed. buy=short,sell = long
+                                else:
+                                    side = "LONG"
+                                order.position_side = side
+                                order.type = item['order_type']
+                                orders.append(order)                      
+                    except Exception as e:                    
+                        logger.warning(f'Failed to process orders: {e}')
                         pass
-                    else:                        
-                        for item in open_orders["result"]['data']:                            
-                            order = Order()
-                            order.symbol = item['symbol']
-                            order.price = float(item['price'])
-                            order.quantity = float(item['qty'])
-                            order.side = item['side'].upper() # upper() to make it the same as binance
-                            #bybit has no 'position side', assuming 'side'
-                            if item['side'] == "Buy": #recode buy / sell into long / short
-                                side = "SHORT" #note: reversed. buy=short,sell = long
-                            else:
-                                side = "LONG"
-                            order.position_side = side
-                            order.type = item['order_type']
-                            orders.append(order)                      
-                except Exception as e:                    
-                    logger.warning(f'Failed to process orders: {e}')
-                    pass
-            logger.warning('Synced orders')
-            self.repository.process_orders(orders)
-            time.sleep(120) #pause after 1 complete run
+                logger.warning('Synced orders')
+                self.repository.process_orders(orders)
+            time.sleep(140) #pause after 1 complete run
 
 
 
@@ -181,22 +190,22 @@ class BybitDerivatives:
 
     def process_trades(self, symbol: str):
         while True:
-            logger.info(f"Trade stream started")
-            try:
-                for i in linearsymbols:
-                    event = self.rest_manager.LinearMarket.LinearMarket_trading(symbol="{}".format(i)).result()
-                    event1 = event[0]['result']          
-                    tick = Tick(symbol=event1[0]['symbol'],
-                                    price=float(event1[0]['price']),
-                                    qty=float(event1[0]['qty']),
-                                    timestamp=int(event1[0]['trade_time_ms']))
-                    # logger.info(f"Processed tick for {tick.symbol}")
-                    self.repository.process_tick(tick)
-                logger.info(f"Processed ticks")
-                time.sleep(120)
-            except Exception as e:                    
-                logger.warning(f'Failed to process trades: {e}')
-                pass
+            # logger.info(f"Trade stream started")
+            if len(activesymbols) > 1: # if activesymbols has more than 1 item do stuff
+                try:
+                    for i in activesymbols:
+                        event = self.rest_manager.LinearMarket.LinearMarket_trading(symbol="{}".format(i)).result()
+                        event1 = event[0]['result']          
+                        tick = Tick(symbol=event1[0]['symbol'],
+                                        price=float(event1[0]['price']),
+                                        qty=float(event1[0]['qty']),
+                                        timestamp=int(event1[0]['trade_time_ms']))
+                        self.repository.process_tick(tick)
+                    logger.info(f"Processed ticks")
+                    time.sleep(130)
+                except Exception as e:                    
+                    logger.warning(f'Failed to process trades: {e}')
+                    pass
 
     def sync_trades(self):
         while True:
