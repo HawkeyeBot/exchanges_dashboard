@@ -131,7 +131,11 @@ class BybitDerivatives:
                             order.quantity = float(item['qty'])
                             order.side = item['side'].upper() # upper() to make it the same as binance
                             #bybit has no 'position side', assuming 'side'
-                            order.position_side = item['side'].upper() # upper() to make it the same as binance
+                            if item['side'] == "Buy": #recode buy / sell into long / short
+                                side = "SHORT" #note: reversed. buy=short,sell = long
+                            else:
+                                side = "LONG"
+                            order.position_side = side
                             order.type = item['order_type']
                             orders.append(order)                      
                 except Exception as e:                    
