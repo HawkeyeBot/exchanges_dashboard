@@ -1,4 +1,3 @@
-import bybit
 import datetime
 import logging
 import threading
@@ -19,26 +18,26 @@ class BybitDerivatives:
         self.repository = repository
 #        self.ws_manager = BybitWebsocket(wsURL="wss://stream-testnet.bybit.com/realtime_private", 
 #            api_key=self.api_key, api_secret=self.secret)
-        self.rest_manager = bybit.bybit(test=False, api_key=self.api_key, api_secret=self.secret)
         #bybit connection
         self.rest_manager2 = HTTP("https://api.bybit.com", api_key=self.api_key, api_secret=self.secret)
 
 
         # check if i am able to login
-        test = self.rest_manager.APIkey.APIkey_info().result()
-        if test[0]['ret_msg'] == 'ok':
+        test = self.rest_manager2.api_key_info()
+        testlist = ["OK","ok","Ok"]                    
+        if test['ret_msg'] in testlist:
             logger.info(f"rest login succesfull")
         else:
             logger.error(f"failed to login")
             logger.error(f"exiting")
             raise SystemExit()
         
-        #pull all USDT symbols and create a list. TODO: update once every x.time
+        #pull all USDT symbols and create a list.
         global linearsymbols
         linearsymbols = []
-        linearsymbolslist = self.rest_manager.Symbol.Symbol_get().result()
+        linearsymbolslist = self.rest_manager2.query_symbol()
         try:
-            for i in linearsymbolslist[0]['result']:
+            for i in linearsymbolslist['result']:
                 if i['quote_currency'] == 'USDT':
                     linearsymbols.append(i['alias'])
         except Exception as e:
@@ -72,8 +71,8 @@ class BybitDerivatives:
     def sync_account(self):
         while True:
             try:
-                account = self.rest_manager.Wallet.Wallet_getBalance().result()
-                assets = account[0]['result']
+                account = self.rest_manager2.get_wallet_balance()
+                assets = account['result']
                 asset_balances = [AssetBalance(asset=asset,
                                             balance=float(assets[asset]['wallet_balance']),
                                             unrealizedProfit=float(assets[asset]['unrealised_pnl'])
@@ -88,6 +87,7 @@ class BybitDerivatives:
                 time.sleep(100)
             except Exception as e:
                 logger.error(f'Failed to process balance: {e}')
+                time.sleep(360)
                 pass
             
  
@@ -117,9 +117,10 @@ class BybitDerivatives:
                 self.repository.process_positions(positions)                 
                 logger.warning('Synced positions')  
                 # logger.info(f'test: {activesymbols}')
-                time.sleep(240)
+                time.sleep(250)
             except Exception as e:
                 logger.error(f'Failed to process positions: {e}')
+                time.sleep(360)
                 pass
             
 
@@ -149,6 +150,7 @@ class BybitDerivatives:
                                 orders.append(order)                      
                     except Exception as e:                    
                         logger.warning(f'Failed to process orders: {e}')
+                        time.sleep(360)
                         pass
                 logger.warning('Synced orders')
                 self.repository.process_orders(orders)
@@ -194,17 +196,18 @@ class BybitDerivatives:
             if len(activesymbols) > 1: # if activesymbols has more than 1 item do stuff
                 try:
                     for i in activesymbols:
-                        event = self.rest_manager.LinearMarket.LinearMarket_trading(symbol="{}".format(i)).result()
-                        event1 = event[0]['result']          
-                        tick = Tick(symbol=event1[0]['symbol'],
-                                        price=float(event1[0]['price']),
-                                        qty=float(event1[0]['qty']),
-                                        timestamp=int(event1[0]['trade_time_ms']))
+                        event = self.rest_manager2.public_trading_records(symbol="{}".format(i), limit='1')
+                        event1 = event['result'][0]
+                        tick = Tick(symbol=event1['symbol'],
+                                        price=float(event1['price']),
+                                        qty=float(event1['qty']),
+                                        timestamp=int(event1['trade_time_ms']))
                         self.repository.process_tick(tick)
                     logger.info(f"Processed ticks")
                     time.sleep(130)
                 except Exception as e:                    
                     logger.warning(f'Failed to process trades: {e}')
+                    time.sleep(360)
                     pass
 
     def sync_trades(self):
@@ -239,6 +242,7 @@ class BybitDerivatives:
                                     self.repository.process_incomes(incomes)
                             time.sleep(5) # pause to not overload the api limit
                     except Exception:
+                        time.sleep(360)
                         pass
                 x += 1
                 logger.info('Synced initial trades')
@@ -264,6 +268,7 @@ class BybitDerivatives:
                             self.repository.process_incomes(incomes)
                         time.sleep(5) # pause to not overload the api limit
                     except Exception:
+                        time.sleep(360)
                         pass
                 logger.warning('Synced trades')
             time.sleep(120)
