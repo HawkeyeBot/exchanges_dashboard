@@ -6,6 +6,4 @@
     "exchange": "binance_futures",
     "api_key": "",
     "api_secret": "",
-    // "symbols": ["BTCUSDT", "ETHUSDT"] // Defining symbols is not needed when using binance_futures
   }
-  
