@@ -173,11 +173,10 @@ class BinanceFutures:
                     order.position_side = open_order['positionSide']
                     order.type = open_order['type']
                     orders.append(order)
+                self.repository.process_orders(orders)
+                logger.warning('Synced orders')
             except Exception as e:
                 logger.error(f'Failed to process open orders for symbol: {e}')
-            self.repository.process_orders(orders)
-
-            logger.warning('Synced orders')
 
             time.sleep(30)
 
