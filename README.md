@@ -23,8 +23,6 @@ This repository is meant to provide an easy-to-run (local) web-UI that provides 
   * `cp config.example.json config.json`
 * Enter the api-key & secret
   * `nano config.json`
-* Edit `docker-compose.yml` and change `$PWD` to full path
-  * `nano docker-compose.yml`
 * Start the dashboard
   * Run `docker-compose up -d`
 * Go to http://localhost:3000
