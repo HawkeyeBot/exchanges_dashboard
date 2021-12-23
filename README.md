@@ -17,10 +17,14 @@ This repository is meant to provide an easy-to-run (local) web-UI that provides 
 * Filename: /data/exchanges_db.sqlite
 
 # Starting the dashboard
-
+* Clone this repo:
+  * `git clone https://github.com/hoeckxer/exchanges_dashboard.git`
 * Copy the config.example.json to config.json
+  * `cp config.example.json config.json`
 * Enter the api-key & secret
-* Run `docker-compose up -d`
+  * `nano config.json`
+* Start the dashboard
+  * Run `docker-compose up -d`
 * Go to http://localhost:3000
 
 | WARNING: If you change the config.json file, make sure you rebuild the container using `docker-compose up -d --build` |
