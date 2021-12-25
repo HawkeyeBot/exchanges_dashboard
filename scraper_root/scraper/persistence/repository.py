@@ -293,7 +293,10 @@ class Repository:
                     # open positions are synced at least every 5 minutes
                     return session.query(TradedSymbolEntity).filter(TradedSymbolEntity.symbol == position_symbol).first().symbol
             next_symbol = session.query(TradedSymbolEntity).order_by(nulls_first(TradedSymbolEntity.last_trades_downloaded.asc())).first()
-            return next_symbol.symbol
+            if next_symbol is None:
+                return None
+            else:
+                return next_symbol.symbol
 
     def open_positions(self) -> List[PositionEntity]:
         with self.session() as session:
