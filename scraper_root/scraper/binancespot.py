@@ -81,6 +81,8 @@ class BinanceSpot:
             except Exception as e:
                 logger.error(f'Failed to verify unchecked symbols: {e}')
 
+            logger.info('Updated new traded symbols')
+
             # TODO: once in a while the checked symbols that are not in the DB should be checked
             time.sleep(20)
 
