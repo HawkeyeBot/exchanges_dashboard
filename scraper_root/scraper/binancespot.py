@@ -103,6 +103,8 @@ class BinanceSpot:
                 while counter < max_downloads:
                     # TODO: sync symbol of open position first if it was more than 5 minutes ago
                     symbol = self.repository.get_next_traded_symbol()
+                    if symbol is not None:
+                        self.repository.update_trades_last_downloaded(symbol)
                     if symbol is None or symbol in iteration_symbols:
                         counter += 1
                         continue
@@ -172,8 +174,6 @@ class BinanceSpot:
                         self.repository.process_trades(trades)
                         if len(exchange_trades) < 1:
                             newest_trade_reached = True
-
-                    self.repository.update_trades_last_downloaded(symbol)
 
                     if newest_trade_reached:  # all trades downloaded
                         # calculate incomes
