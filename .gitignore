@@ -130,3 +130,5 @@ dmypy.json
 
 /data
 *.json
+
+*.db.trace.db
