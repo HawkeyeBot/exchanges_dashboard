@@ -139,7 +139,7 @@ class Repository:
                 TradeEntity.time.asc()).first()
             return result
 
-    def get_trades(self, symbol: str) -> TradeEntity:
+    def get_trades(self, symbol: str) -> List[TradeEntity]:
         with self.session() as session:
             logger.debug(f'Getting all trades for {symbol}')
             result = session.query(TradeEntity).filter(TradeEntity.symbol == symbol).all()

@@ -34,7 +34,7 @@ class BinanceSpot:
 
         self.exchange_information = self.rest_manager.get_exchange_info()
         sorted_symbols = [s for s in self.exchange_information['symbols'] if
-                          s['status'] == 'TRADING' and s['quoteAsset'] == 'USDT']
+                          s['status'] == 'TRADING' and s['quoteAsset'] in ['BTC', 'USDT', 'BUSD', 'USDC', 'USDP']]
         sorted_symbols.extend([s for s in self.exchange_information['symbols'] if s not in sorted_symbols])
         self.exchange_information['symbols'] = sorted_symbols
         symbol_search_thread = threading.Thread(name=f'userdata_thread',
@@ -93,6 +93,13 @@ class BinanceSpot:
                 return symbol_information['baseAsset']
         raise Exception(f'No asset found for symbol {symbol}')
 
+    def get_quote_asset(self, symbol: str) -> str:
+        symbol_informations = self.exchange_information['symbols']
+        for symbol_information in symbol_informations:
+            if symbol_information['symbol'] == symbol:
+                return symbol_information['quoteAsset']
+        raise Exception(f'No asset found for symbol {symbol}')
+
     def sync_trades(self):
         first_trade_reached = {}  # key: symbol, value: bool
         max_downloads = 10
@@ -103,6 +110,7 @@ class BinanceSpot:
                 while counter < max_downloads:
                     # TODO: sync symbol of open position first if it was more than 5 minutes ago
                     symbol = self.repository.get_next_traded_symbol()
+                    logger.warning(f'Updating trades for {symbol}')
                     if symbol is not None:
                         self.repository.update_trades_last_downloaded(symbol)
                     if symbol is None or symbol in iteration_symbols:
@@ -238,40 +246,88 @@ class BinanceSpot:
                     asset = balance['asset']
                     free = float(balance['free'])
                     locked = float(balance['locked'])
-                    position_size = free + locked
-                    if position_size > 0.0:
-                        if asset in ['USDT', 'BUSD']:
-                            total_usdt_wallet_balance += position_size
+                    asset_quantity = free + locked
+                    if asset_quantity > 0.0:
+                        if asset in ['USDT', 'BUSD', 'USDC', 'USDP']:
+                            total_usdt_wallet_balance += asset_quantity
                         else:
-                            current_usd_prices = [p for p in current_prices if p['symbol'] in [f'{asset}USDT', f'{asset}BUSD']]
+                            current_usd_prices = [p for p in current_prices if p['symbol'] in [f'{asset}BTC', f'{asset}USDT', f'{asset}BUSD', f'{asset}USDC', f'{asset}USDP']]
                             if len(current_usd_prices) > 0:
                                 asset_usd_balance = 0.0
                                 unrealized_profit = 0.0
+                                asset_positions = []
                                 for current_usd_price in current_usd_prices:
                                     symbol = current_usd_price['symbol']
                                     symbol_trades = self.repository.get_trades_by_asset(symbol)
-                                    # little hack: assume no position if no orders open
-                                    if len(symbol_trades) > 0 and len(self.repository.get_open_orders(symbol)) > 0:
-                                        position_price = self.calc_long_pprice(long_psize=position_size, trades=symbol_trades)
 
-                                        asset_usd_balance = position_size * position_price
+                                    if len(symbol_trades) > 0: # and len(self.repository.get_open_orders(symbol)) > 0:
+                                        position_price = self.calc_long_pprice(long_psize=asset_quantity, trades=symbol_trades)
+
                                         # position size is already bigger than 0, so there is a position
-                                        unrealized_profit = (self.get_current_price(symbol) - position_price) * position_size
+                                        unrealized_profit = (self.get_current_price(symbol) - position_price) * asset_quantity
                                         total_unrealized_profit += unrealized_profit
 
                                         position = Position(symbol=symbol,
                                                             entry_price=position_price,
-                                                            position_size=position_size,
+                                                            position_size=asset_quantity,
                                                             side='LONG',
                                                             unrealizedProfit=unrealized_profit,
                                                             initial_margin=0.0)
-                                        positions.append(position)
+                                        asset_positions.append(position)
+                                        logger.debug(f'Processed position for {symbol}')
+
+                                position_with_open_orders = [position for position in asset_positions
+                                                             if len(self.repository.get_open_orders(position.symbol)) > 0]
+                                selected_position = None
+                                if len(position_with_open_orders) == 1:
+                                    selected_position = position_with_open_orders[0]
+                                elif len(position_with_open_orders) > 1:
+                                    selected_position = position_with_open_orders[0]
+                                    logger.warning(f'Found multiple different symbols '
+                                                   f'({[pos.symbol for pos in position_with_open_orders]}) with open '
+                                                   f'orders for asset {asset}, using {selected_position.symbol}')
+                                else:
+                                    overall_latest_trade_date = None
+                                    for position in asset_positions:
+                                        symbol_trades = self.repository.get_trades(position.symbol)
+                                        if len(symbol_trades) > 0:
+                                            latest_trade = max([trade.timestamp for trade in symbol_trades])
+                                            if overall_latest_trade_date is None or latest_trade > overall_latest_trade_date:
+                                                overall_latest_trade_date = latest_trade
+                                                selected_position = position
+                                                continue
+
+                                if selected_position is not None:
+                                    asset_usd_balance = asset_quantity * selected_position.entry_price
+                                    positions.append(selected_position)
+
                                 asset_balance = AssetBalance(asset=balance['asset'],
                                                              balance=asset_usd_balance,
                                                              unrealizedProfit=unrealized_profit)
                                 asset_balances.append(asset_balance)
                             else:
-                                logger.warning(f'NO PRICE FOUND FOR USDT FOR SYMBOL {asset}')
+                                logger.debug(f'NO PRICE FOUND FOR ASSET {asset}')
+
+                positions_to_use = []
+                for position in positions:
+                    base_asset = self.get_asset(position.symbol)
+                    quote_asset = self.get_quote_asset(position.symbol)
+
+                    quote_based_position_found = False
+
+                    for inspected_position in positions:
+                        inspected_base_asset = self.get_asset(inspected_position.symbol)
+                        inspected_quote_asset = self.get_quote_asset(inspected_position.symbol)
+                        if inspected_quote_asset == base_asset and len(self.repository.get_trades(inspected_position.symbol)) > 0:
+                            [positions_to_use.remove(p) for p in positions_to_use
+                                if self.get_asset(p.symbol) == inspected_quote_asset
+                                and self.get_quote_asset(p.symbol) == inspected_base_asset]
+
+                            quote_based_position_found = True
+                            break
+
+                    if not quote_based_position_found:
+                        positions_to_use.append(position)
 
                 coin_usdt_balance = sum([b.balance for b in asset_balances])
                 total_usdt_wallet_balance += coin_usdt_balance
@@ -282,7 +338,7 @@ class BinanceSpot:
                                         assets=asset_balances)
 
                 self.repository.process_balances(total_balance)
-                self.repository.process_positions(positions)
+                self.repository.process_positions(positions_to_use)
                 logger.warning('Synced account')
             except Exception as e:
                 logger.error(f'Failed to process balance: {e}')
@@ -307,7 +363,7 @@ class BinanceSpot:
                 logger.error(f'Failed to process open orders for symbol: {e}')
             self.repository.process_orders(orders)
 
-            logger.warning('Synced orders')
+            logger.warning('Synced open orders')
 
             time.sleep(30)
 
