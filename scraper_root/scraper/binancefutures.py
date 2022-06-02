@@ -1,5 +1,6 @@
 import datetime
 import logging
+import os
 import threading
 import time
 
@@ -22,8 +23,13 @@ class BinanceFutures:
         self.repository = repository
         self.ws_manager = BinanceWebSocketApiManager(exchange=exchange, throw_exception_if_unrepairable=True,
                                                      warn_on_update=False)
-
         self.rest_manager = BinanceRestApiManager(self.api_key, api_secret=self.secret)
+
+        self.rest_manager.FUTURES_URL = f"{os.getenv('FUTURES_URL', 'https://fapi.binance.com')}/fapi"
+        self.rest_manager.FUTURES_DATA_URL = f"{os.getenv('FUTURES_DATA_URL', 'https://fapi.binance.com')}/futures/data"
+        self.rest_manager.FUTURES_COIN_URL = f"{os.getenv('FUTURES_DATA_URL', 'https://fapi.binance.com')}/fapi"
+        self.rest_manager.FUTURES_COIN_DATA_URL = f"{os.getenv('FUTURES_DATA_URL', 'https://dapi.binance.com')}/futures/data"
+
         self.tick_symbols = []
 
     def start(self):
