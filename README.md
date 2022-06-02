@@ -2,6 +2,14 @@
 
 This repository is meant to provide an easy-to-run (local) web-UI that provides insight into your account(s) activities on exchanges. It uses a custom script to retrieve data from one or more exchanges (via websocket and/or REST), which is then inserted into a database (sqlite by default). A metabase container is then launched with a default configuration to display this information.
 
+# Screenshots
+
+Overview of the dashboard:
+![Futures](images/futures.png?raw=true "Futures")
+
+When a value is entered in the DCA field (top left), the DCA quantity and the DCA price (x% above the current price) will be displayed in the additional fields in the table.
+![DCA](images/dca.png?raw=true "DCA")
+
 # Metabase configuration:
 
 ## Credentials
@@ -35,3 +43,7 @@ This repository is meant to provide an easy-to-run (local) web-UI that provides 
 
 # Stopping the dashboard
 * Run `docker-compose stop`
+
+# Multiple dashboard
+* If you want to deploy a second dashboard instance on the same machine, please clone the repo and update the `config.json` and `docker-compose.yaml` files.
+* In the `docker-compose.yaml` you'll have to modify container names, exposed port and network interface. An example is provided in `docker-compose.yaml.example-second-dashboard` 
