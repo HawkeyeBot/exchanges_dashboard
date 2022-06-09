@@ -15,7 +15,7 @@ services:
     hostname: metabase
     volumes:
       - /dev/urandom:/dev/random:ro
-      - $PWD:/metabase-data
+      - $PWD/:/metabase-data
       - $PWD/data:/data
     ports:
       - 3000:3000
