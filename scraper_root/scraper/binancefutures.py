@@ -135,6 +135,8 @@ class BinanceFutures:
                 total_wallet_balance = sum([float(asset['walletBalance']) for asset in usd_assets])
                 total_upnl = sum([float(asset['unrealizedProfit']) for asset in usd_assets])
 
+                logger.info(f'Wallet balance: {total_wallet_balance}, upnl: {total_upnl}')
+
                 balance = Balance(totalBalance=total_wallet_balance,
                                   totalUnrealizedProfit=total_upnl,
                                   assets=asset_balances)
