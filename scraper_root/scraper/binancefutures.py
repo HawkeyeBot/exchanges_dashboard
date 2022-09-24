@@ -130,8 +130,13 @@ class BinanceFutures:
                                                unrealizedProfit=float(
                                                    asset['unrealizedProfit'])
                                                ) for asset in account['assets']]
-                balance = Balance(totalBalance=account['totalWalletBalance'],
-                                  totalUnrealizedProfit=account['totalUnrealizedProfit'],
+
+                usd_assets = [asset for asset in account['assets'] if asset['asset'] in ['BUSD', 'USDT', 'USDC']]
+                total_wallet_balance = sum([float(asset['walletBalance']) for asset in usd_assets])
+                total_upnl = sum([float(asset['unrealizedProfit']) for asset in usd_assets])
+
+                balance = Balance(totalBalance=total_wallet_balance,
+                                  totalUnrealizedProfit=total_upnl,
                                   assets=asset_balances)
                 self.repository.process_balances(balance)
 
