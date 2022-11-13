@@ -14,6 +14,8 @@ from scraper_root.scraper.persistence.repository import Repository
 logger = logging.getLogger()
 
 
+MILLISECONDS_IN_AN_HOUR = 3600000
+
 def is_asset_usd_or_derivative(asset: str):
     return asset.lower() in ["usdt", "busd", "usd", "usdc"]
 
@@ -138,13 +140,22 @@ class BinanceFutures:
 
             time.sleep(60)
 
-    def income_to_usdt(self, income: float, asset: str):
+    def income_to_usdt(self, income: float, income_timestamp, asset: str):
         if is_asset_usd_or_derivative(asset):
             return income
 
+        # Can't get the latest aggr_trades on just the endTime, so this is 'best effort'
         symbol = f"{asset}USDT"
-        ticker = self.rest_manager.get_ticker(symbol=symbol)
-        return income * float(ticker['weightedAvgPrice'])
+        aggregated_trades = self.rest_manager.get_aggregate_trades(
+            symbol=symbol,
+            startTime=income_timestamp - 1000,
+            endTime=income_timestamp)
+
+        if len(aggregated_trades) > 0:
+            asset_price = aggregated_trades[-1]['p']
+            income *= float(asset_price)
+
+        return income
 
     def sync_account(self):
         while True:
