@@ -81,6 +81,7 @@ class BinanceFutures:
                         if not is_asset_usd_or_derivative(exchange_income['asset']):
                             exchange_income['income'] = self.income_to_usdt(
                                 float(exchange_income['income']),
+                                int(exchange_income['time']),
                                 exchange_income['asset'])
                             exchange_income['asset'] = "USDT"
 
@@ -117,6 +118,7 @@ class BinanceFutures:
                         if not is_asset_usd_or_derivative(exchange_income['asset']):
                             exchange_income['income'] = self.income_to_usdt(
                                 float(exchange_income['income']),
+                                int(exchange_income['time']),
                                 exchange_income['asset'])
                             exchange_income['asset'] = "USDT"
 
@@ -137,7 +139,7 @@ class BinanceFutures:
 
             time.sleep(60)
 
-    def income_to_usdt(self, income: float, income_timestamp, asset: str):
+    def income_to_usdt(self, income: float, income_timestamp: int, asset: str) -> float:
         if is_asset_usd_or_derivative(asset):
             return income
 
@@ -145,7 +147,7 @@ class BinanceFutures:
         symbol = f"{asset}USDT"
         aggregated_trades = self.rest_manager.get_aggregate_trades(
             symbol=symbol,
-            startTime=income_timestamp - 1000,
+            startTime=int(income_timestamp) - 1000,
             endTime=income_timestamp)
 
         if len(aggregated_trades) > 0:
