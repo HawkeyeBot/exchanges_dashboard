@@ -13,9 +13,6 @@ from scraper_root.scraper.persistence.repository import Repository
 
 logger = logging.getLogger()
 
-
-MILLISECONDS_IN_AN_HOUR = 3600000
-
 def is_asset_usd_or_derivative(asset: str):
     return asset.lower() in ["usdt", "busd", "usd", "usdc"]
 
