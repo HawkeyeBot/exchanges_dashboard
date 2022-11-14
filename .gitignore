@@ -132,3 +132,5 @@ dmypy.json
 *.json
 
 *.db.trace.db
+
+.idea
