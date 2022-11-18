@@ -3,6 +3,7 @@
 
 {
     "exchange": "binance_futures",
+    "test_net": false,
     "api_key": "",
-    "api_secret": "",
-  }
+    "api_secret": ""
+}

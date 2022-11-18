@@ -136,4 +136,5 @@ class ScraperConfig:
     api_key: str = ''
     api_secret: str = ''
     exchange: str = ''
+    test_net: bool = False
     symbols: List[str] = field(default_factory=lambda: [])

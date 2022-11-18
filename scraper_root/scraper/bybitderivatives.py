@@ -19,7 +19,10 @@ class BybitDerivatives:
 #        self.ws_manager = BybitWebsocket(wsURL="wss://stream-testnet.bybit.com/realtime_private", 
 #            api_key=self.api_key, api_secret=self.secret)
         #bybit connection
-        self.rest_manager2 = HTTP("https://api.bybit.com", api_key=self.api_key, api_secret=self.secret)
+        api_link = "https://api.bybit.com"
+        if self.config.test_net:
+            api_link = "https://api-testnet.bybit.com"
+        self.rest_manager2 = HTTP(api_link, api_key=self.api_key, api_secret=self.secret)
 
 
         # check if i am able to login
