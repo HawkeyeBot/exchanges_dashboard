@@ -3,23 +3,25 @@ import logging
 import os
 import threading
 import time
+from typing import List
 
 from unicorn_binance_rest_api import BinanceRestApiManager
 from unicorn_binance_websocket_api import BinanceWebSocketApiManager
 
 from scraper_root.scraper.data_classes import AssetBalance, Position, ScraperConfig, Tick, Balance, \
-    Income, Order
+    Income, Order, Account
 from scraper_root.scraper.persistence.repository import Repository
 
 logger = logging.getLogger()
 
 
 class BinanceFutures:
-    def __init__(self, config: ScraperConfig, repository: Repository, exchange: str = "binance.com-futures"):
+    def __init__(self, account: Account, symbols: List[str], repository: Repository, exchange: str = "binance.com-futures"):
         print('Binance initialized')
-        self.config = config
-        self.api_key = self.config.api_key
-        self.secret = self.config.api_secret
+        self.account = account
+        self.symbols = symbols
+        self.api_key = self.account.api_key
+        self.secret = self.account.api_secret
         self.repository = repository
         self.ws_manager = BinanceWebSocketApiManager(exchange=exchange, throw_exception_if_unrepairable=True,
                                                      warn_on_update=False)
@@ -35,10 +37,7 @@ class BinanceFutures:
     def start(self):
         print('Starting binance futures scraper')
 
-        # userdata_thread = threading.Thread(name=f'userdata_thread', target=self.process_userdata, daemon=True)
-        # userdata_thread.start()
-
-        for symbol in self.config.symbols:
+        for symbol in self.symbols:
             symbol_trade_thread = threading.Thread(
                 name=f'trade_thread_{symbol}', target=self.process_trades, args=(symbol,), daemon=True)
             symbol_trade_thread.start()
@@ -62,7 +61,7 @@ class BinanceFutures:
                 counter = 0
                 while first_trade_reached is False and counter < 3:
                     counter += 1
-                    oldest_income = self.repository.get_oldest_income()
+                    oldest_income = self.repository.get_oldest_income(account=self.account.alias)
                     if oldest_income is None:
                         # API will return inclusive, don't want to return the oldest record again
                         oldest_timestamp = int(datetime.datetime.now(datetime.timezone.utc).timestamp() * 1000)
@@ -81,7 +80,7 @@ class BinanceFutures:
                                         timestamp=exchange_income['time'],
                                         transaction_id=exchange_income['tranId'])
                         incomes.append(income)
-                    self.repository.process_incomes(incomes)
+                    self.repository.process_incomes(incomes, account=self.account.alias)
                     if len(exchange_incomes) < 1:
                         first_trade_reached = True
 
@@ -90,7 +89,7 @@ class BinanceFutures:
                 newest_trade_reached = False
                 while newest_trade_reached is False and counter < 3:
                     counter += 1
-                    newest_income = self.repository.get_newest_income()
+                    newest_income = self.repository.get_newest_income(account=self.account.alias)
                     if newest_income is None:
                         # Binance started in September 2017, so no trade can be before that
                         newest_timestamp = int(datetime.datetime.fromisoformat('2017-09-01 00:00:00+00:00').timestamp() * 1000)
@@ -110,7 +109,7 @@ class BinanceFutures:
                                         timestamp=exchange_income['time'],
                                         transaction_id=exchange_income['tranId'])
                         incomes.append(income)
-                    self.repository.process_incomes(incomes)
+                    self.repository.process_incomes(incomes, account=self.account.alias)
                     if len(exchange_incomes) < 1:
                         newest_trade_reached = True
 
@@ -140,7 +139,7 @@ class BinanceFutures:
                 balance = Balance(totalBalance=total_wallet_balance,
                                   totalUnrealizedProfit=total_upnl,
                                   assets=asset_balances)
-                self.repository.process_balances(balance)
+                self.repository.process_balances(balance, account=self.account.alias)
 
                 positions = [Position(symbol=position['symbol'],
                                       entry_price=float(
@@ -152,7 +151,7 @@ class BinanceFutures:
                                           position['unrealizedProfit']),
                                       initial_margin=float(position['initialMargin'])
                                       ) for position in account['positions'] if position['positionSide'] != 'BOTH']
-                self.repository.process_positions(positions)
+                self.repository.process_positions(positions, account=self.account.alias)
                 for position in positions:
                     if position.position_size > 0.0:
                         try:
@@ -162,7 +161,7 @@ class BinanceFutures:
                                         price=float(trade['price']),
                                         qty=float(trade['qty']),
                                         timestamp=trade['time'])
-                            self.repository.process_tick(tick)
+                            self.repository.process_tick(tick, account=self.account.alias)
                         except Exception as e:
                             logger.error(f'Failed to process tick for {symbol}: {e}')
                 # [self.add_to_ticker(position.symbol) for position in positions if position.position_size > 0.0]
@@ -186,7 +185,7 @@ class BinanceFutures:
                     order.position_side = open_order['positionSide']
                     order.type = open_order['type']
                     orders.append(order)
-                self.repository.process_orders(orders)
+                self.repository.process_orders(orders, account=self.account.alias)
                 logger.warning('Synced orders')
             except Exception as e:
                 logger.error(f'Failed to process open orders for symbol: {e}')
@@ -226,7 +225,7 @@ class BinanceFutures:
                                 qty=float(event['quantity']),
                                 timestamp=int(event['trade_time']))
                     logger.debug(f"Processed tick for {tick.symbol}")
-                    self.repository.process_tick(tick)
+                    self.repository.process_tick(tick, account=self.account.alias)
             except Exception as e:
                 logger.warning(f'Error processing tick: {e}')
             # Price update every 5 seconds is fast enough
