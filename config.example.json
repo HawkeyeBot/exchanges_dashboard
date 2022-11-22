@@ -8,6 +8,12 @@
       "exchange": "binance_futures",
       "api_key": "",
       "api_secret": ""
+    },
+    {
+      "alias": "demo_2",
+      "exchange": "binance_futures",
+      "api_key": "",
+      "api_secret": ""
     }
   ]
 }

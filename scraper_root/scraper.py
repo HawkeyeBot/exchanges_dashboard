@@ -1,5 +1,6 @@
 import logging
 import os
+import time
 from types import SimpleNamespace
 from typing import List
 
@@ -37,6 +38,7 @@ if __name__ == '__main__':
 
     scrapers: List = []
     repository = Repository(accounts=[account.alias for account in scraper_config.accounts])
+    scraper = None
     for account in scraper_config.accounts:
         if account.exchange == 'binance_futures':
             scraper = BinanceFutures(account=account, symbols=scraper_config.symbols, repository=repository)
@@ -52,3 +54,11 @@ if __name__ == '__main__':
             logger.info(f'Started scraping account {account.alias} ({account.exchange})')
         except Exception as e:
             logger.error(f"Failed to start exchange: {e}")
+
+    while True:
+        try:
+            time.sleep(10)
+        except:
+            break
+
+    logger.info('Scraper shut down')
