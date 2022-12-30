@@ -14,6 +14,9 @@ from scraper_root.scraper.persistence.repository import Repository
 
 logger = logging.getLogger()
 
+def is_asset_usd_or_derivative(asset: str):
+    return asset.lower() in ["usdt", "busd", "usd", "usdc"]
+
 
 class BinanceFutures:
     def __init__(self, account: Account, symbols: List[str], repository: Repository, exchange: str = "binance.com-futures"):
@@ -69,10 +72,18 @@ class BinanceFutures:
                         oldest_timestamp = oldest_income.timestamp
                         logger.warning(f'Synced trades before {oldest_timestamp}')
 
-                    exchange_incomes = self.rest_manager.futures_income_history(**{'limit': 1000, 'endTime': oldest_timestamp - 1})
+                    exchange_incomes = self.rest_manager.futures_income_history(
+                        **{'limit': 1000, 'endTime': oldest_timestamp - 1})
                     logger.info(f"Length of older trades fetched up to {oldest_timestamp}: {len(exchange_incomes)}")
                     incomes = []
                     for exchange_income in exchange_incomes:
+                        if not is_asset_usd_or_derivative(exchange_income['asset']):
+                            exchange_income['income'] = self.income_to_usdt(
+                                float(exchange_income['income']),
+                                int(exchange_income['time']),
+                                exchange_income['asset'])
+                            exchange_income['asset'] = "USDT"
+
                         income = Income(symbol=exchange_income['symbol'],
                                         asset=exchange_income['asset'],
                                         type=exchange_income['incomeType'],
@@ -92,20 +103,28 @@ class BinanceFutures:
                     newest_income = self.repository.get_newest_income(account=self.account.alias)
                     if newest_income is None:
                         # Binance started in September 2017, so no trade can be before that
-                        newest_timestamp = int(datetime.datetime.fromisoformat('2017-09-01 00:00:00+00:00').timestamp() * 1000)
+                        newest_timestamp = int(
+                            datetime.datetime.fromisoformat('2017-09-01 00:00:00+00:00').timestamp() * 1000)
                     else:
                         newest_timestamp = newest_income.timestamp
                         logger.warning(f'Synced newer trades since {newest_timestamp}')
 
-                    exchange_incomes = self.rest_manager.futures_income_history(**{'limit': 1000, 'startTime': newest_timestamp + 1})
+                    exchange_incomes = self.rest_manager.futures_income_history(
+                        **{'limit': 1000, 'startTime': newest_timestamp + 1})
                     logger.info(f"Length of newer trades fetched from {newest_timestamp}: {len(exchange_incomes)}")
                     incomes = []
                     for exchange_income in exchange_incomes:
+                        if not is_asset_usd_or_derivative(exchange_income['asset']):
+                            exchange_income['income'] = self.income_to_usdt(
+                                float(exchange_income['income']),
+                                int(exchange_income['time']),
+                                exchange_income['asset'])
+                            exchange_income['asset'] = "USDT"
+
                         income = Income(symbol=exchange_income['symbol'],
                                         asset=exchange_income['asset'],
                                         type=exchange_income['incomeType'],
-                                        income=float(
-                                            exchange_income['income']),
+                                        income=float(exchange_income['income']),
                                         timestamp=exchange_income['time'],
                                         transaction_id=exchange_income['tranId'])
                         incomes.append(income)
@@ -118,6 +137,23 @@ class BinanceFutures:
                 logger.error(f'Failed to process trades: {e}')
 
             time.sleep(60)
+
+    def income_to_usdt(self, income: float, income_timestamp: int, asset: str) -> float:
+        if is_asset_usd_or_derivative(asset):
+            return income
+
+        # Can't get the latest aggr_trades on just the endTime, so this is 'best effort'
+        symbol = f"{asset}USDT"
+        aggregated_trades = self.rest_manager.get_aggregate_trades(
+            symbol=symbol,
+            startTime=int(income_timestamp) - 1000,
+            endTime=income_timestamp)
+
+        if len(aggregated_trades) > 0:
+            asset_price = aggregated_trades[-1]['p']
+            income *= float(asset_price)
+
+        return income
 
     def sync_account(self):
         while True:
