@@ -8,7 +8,7 @@ from unicorn_binance_rest_api import BinanceRestApiManager
 from unicorn_binance_websocket_api import BinanceWebSocketApiManager
 
 from scraper_root.scraper.data_classes import AssetBalance, Position, ScraperConfig, Tick, Balance, \
-    Income, Order, Trade
+    Income, Order, Trade, Account
 from scraper_root.scraper.persistence.orm_classes import TradeEntity
 from scraper_root.scraper.persistence.repository import Repository
 
@@ -16,11 +16,12 @@ logger = logging.getLogger()
 
 
 class BinanceSpot:
-    def __init__(self, config: ScraperConfig, repository: Repository, exchange: str = "binance.com"):
+    def __init__(self, account: Account, symbols: List[str], repository: Repository, exchange: str = "binance.com"):
         print('Binance spot initialized')
-        self.config = config
-        self.api_key = self.config.api_key
-        self.secret = self.config.api_secret
+        self.account = account
+        self.symbols = symbols
+        self.api_key = self.account.api_key
+        self.secret = self.account.api_secret
         self.repository = repository
         self.ws_manager = BinanceWebSocketApiManager(exchange=exchange, throw_exception_if_unrepairable=True,
                                                      warn_on_update=False)
@@ -45,7 +46,7 @@ class BinanceSpot:
         # userdata_thread = threading.Thread(name=f'userdata_thread', target=self.process_userdata, daemon=True)
         # userdata_thread.start()
 
-        for symbol in self.config.symbols:
+        for symbol in self.symbols:
             symbol_trade_thread = threading.Thread(
                 name=f'trade_thread_{symbol}', target=self.process_trades, args=(symbol,), daemon=True)
             symbol_trade_thread.start()
@@ -70,14 +71,14 @@ class BinanceSpot:
                     if item['status'] != 'TRADING':
                         continue  # for performance reasons
                     symbol = item['symbol']
-                    if symbol not in self.repository.get_symbol_checks():
-                        if not self.repository.is_symbol_traded(symbol) and counter < 3:
+                    if symbol not in self.repository.get_symbol_checks(account=self.account.alias):
+                        if not self.repository.is_symbol_traded(symbol, account=self.account.alias) and counter < 3:
                             trades = self.rest_manager.get_my_trades(**{'limit': 1, 'symbol': symbol})
                             counter += 1
-                            self.repository.process_symbol_checked(symbol)
+                            self.repository.process_symbol_checked(symbol, account=self.account.alias)
                             if len(trades) > 0:
                                 logger.info(f'Trades found for {symbol}, adding to sync list')
-                                self.repository.process_traded_symbol(symbol)
+                                self.repository.process_traded_symbol(symbol, account=self.account.alias)
             except Exception as e:
                 logger.error(f'Failed to verify unchecked symbols: {e}')
 
@@ -109,10 +110,10 @@ class BinanceSpot:
                 counter = 0
                 while counter < max_downloads:
                     # TODO: sync symbol of open position first if it was more than 5 minutes ago
-                    symbol = self.repository.get_next_traded_symbol()
+                    symbol = self.repository.get_next_traded_symbol(account=self.account.alias)
                     logger.warning(f'Updating trades for {symbol}')
                     if symbol is not None:
-                        self.repository.update_trades_last_downloaded(symbol)
+                        self.repository.update_trades_last_downloaded(symbol=symbol, account=self.account.alias)
                     if symbol is None or symbol in iteration_symbols:
                         counter += 1
                         continue
@@ -121,7 +122,7 @@ class BinanceSpot:
                         first_trade_reached[symbol] = False
                     while first_trade_reached[symbol] is False and counter < max_downloads:
                         counter += 1
-                        oldest_trade = self.repository.get_oldest_trade(symbol)
+                        oldest_trade = self.repository.get_oldest_trade(symbol=symbol, account=self.account.alias)
                         if oldest_trade is None:
                             # API will return inclusive, don't want to return the oldest record again
                             oldest_timestamp = int(datetime.datetime.now(datetime.timezone.utc).timestamp() * 1000)
@@ -131,7 +132,8 @@ class BinanceSpot:
 
                         exchange_trades = self.rest_manager.get_my_trades(**{'symbol': symbol, 'limit': 1000,
                                                                              'endTime': oldest_timestamp - 1})
-                        logger.info(f"Length of older trades fetched up to {oldest_timestamp}: {len(exchange_trades)} for {symbol}")
+                        logger.info(
+                            f"Length of older trades fetched up to {oldest_timestamp}: {len(exchange_trades)} for {symbol}")
                         trades = []
                         for exchange_trade in exchange_trades:
                             trade = Trade(symbol=exchange_trade['symbol'],
@@ -143,7 +145,7 @@ class BinanceSpot:
                                           side='BUY' if exchange_trade['isBuyer'] is True else 'SELL',
                                           timestamp=int(exchange_trade['time']))
                             trades.append(trade)
-                        self.repository.process_trades(trades)
+                        self.repository.process_trades(trades=trades, account=self.account.alias)
                         if len(exchange_trades) < 1:
                             first_trade_reached[symbol] = True
 
@@ -152,7 +154,7 @@ class BinanceSpot:
                     newest_trade_reached = False
                     while newest_trade_reached is False and counter < max_downloads:
                         counter += 1
-                        newest_trade = self.repository.get_newest_trade(symbol)
+                        newest_trade = self.repository.get_newest_trade(symbol=symbol, account=self.account.alias)
                         if newest_trade is None:
                             # Binance started in September 2017, so no trade can be before that
                             # newest_timestamp = int(datetime.datetime.fromisoformat('2017-09-01 00:00:00+00:00').timestamp() * 1000)
@@ -166,8 +168,9 @@ class BinanceSpot:
                         exchange_trades = self.rest_manager.get_my_trades(**{'symbol': symbol,
                                                                              # 'limit': 1000,
                                                                              'orderId': newest_order_id + 1})
-                                                                             # 'startTime': newest_timestamp + 1})
-                        logger.info(f"Length of newer trades fetched from id {newest_order_id}: {len(exchange_trades)} for {symbol}")
+                        # 'startTime': newest_timestamp + 1})
+                        logger.info(
+                            f"Length of newer trades fetched from id {newest_order_id}: {len(exchange_trades)} for {symbol}")
                         trades = []
                         for exchange_trade in exchange_trades:
                             trade = Trade(symbol=exchange_trade['symbol'],
@@ -179,14 +182,16 @@ class BinanceSpot:
                                           side='BUY' if exchange_trade['isBuyer'] is True else 'SELL',
                                           timestamp=int(exchange_trade['time']))
                             trades.append(trade)
-                        self.repository.process_trades(trades)
+                        self.repository.process_trades(trades=trades, account=self.account.alias)
                         if len(exchange_trades) < 1:
                             newest_trade_reached = True
 
                     if newest_trade_reached:  # all trades downloaded
                         # calculate incomes
-                        incomes = self.calculate_incomes(symbol=symbol, trades=self.repository.get_trades(symbol))
-                        self.repository.process_incomes(incomes)
+                        incomes = self.calculate_incomes(symbol=symbol,
+                                                         trades=self.repository.get_trades(symbol=symbol,
+                                                                                           account=self.account.alias))
+                        self.repository.process_incomes(incomes=incomes, account=self.account.alias)
                 logger.warning('Synced trades')
             except Exception as e:
                 logger.error(f'Failed to process trades: {e}')
@@ -251,20 +256,25 @@ class BinanceSpot:
                         if asset in ['USDT', 'BUSD', 'USDC', 'USDP']:
                             total_usdt_wallet_balance += asset_quantity
                         else:
-                            current_usd_prices = [p for p in current_prices if p['symbol'] in [f'{asset}BTC', f'{asset}USDT', f'{asset}BUSD', f'{asset}USDC', f'{asset}USDP']]
+                            current_usd_prices = [p for p in current_prices if
+                                                  p['symbol'] in [f'{asset}BTC', f'{asset}USDT', f'{asset}BUSD',
+                                                                  f'{asset}USDC', f'{asset}USDP']]
                             if len(current_usd_prices) > 0:
                                 asset_usd_balance = 0.0
                                 unrealized_profit = 0.0
                                 asset_positions = []
                                 for current_usd_price in current_usd_prices:
                                     symbol = current_usd_price['symbol']
-                                    symbol_trades = self.repository.get_trades_by_asset(symbol)
+                                    symbol_trades = self.repository.get_trades_by_asset(symbol,
+                                                                                        account=self.account.alias)
 
-                                    if len(symbol_trades) > 0: # and len(self.repository.get_open_orders(symbol)) > 0:
-                                        position_price = self.calc_long_pprice(long_psize=asset_quantity, trades=symbol_trades)
+                                    if len(symbol_trades) > 0:  # and len(self.repository.get_open_orders(symbol)) > 0:
+                                        position_price = self.calc_long_pprice(long_psize=asset_quantity,
+                                                                               trades=symbol_trades)
 
                                         # position size is already bigger than 0, so there is a position
-                                        unrealized_profit = (self.get_current_price(symbol) - position_price) * asset_quantity
+                                        unrealized_profit = (self.get_current_price(
+                                            symbol) - position_price) * asset_quantity
                                         total_unrealized_profit += unrealized_profit
 
                                         position = Position(symbol=symbol,
@@ -277,7 +287,8 @@ class BinanceSpot:
                                         logger.debug(f'Processed position for {symbol}')
 
                                 position_with_open_orders = [position for position in asset_positions
-                                                             if len(self.repository.get_open_orders(position.symbol)) > 0]
+                                                             if len(self.repository.get_open_orders(position.symbol,
+                                                                                                    account=self.account.alias)) > 0]
                                 selected_position = None
                                 if len(position_with_open_orders) == 1:
                                     selected_position = position_with_open_orders[0]
@@ -289,7 +300,8 @@ class BinanceSpot:
                                 else:
                                     overall_latest_trade_date = None
                                     for position in asset_positions:
-                                        symbol_trades = self.repository.get_trades(position.symbol)
+                                        symbol_trades = self.repository.get_trades(symbol=position.symbol,
+                                                                                   account=self.account.alias)
                                         if len(symbol_trades) > 0:
                                             latest_trade = max([trade.timestamp for trade in symbol_trades])
                                             if overall_latest_trade_date is None or latest_trade > overall_latest_trade_date:
@@ -318,10 +330,12 @@ class BinanceSpot:
                     for inspected_position in positions:
                         inspected_base_asset = self.get_asset(inspected_position.symbol)
                         inspected_quote_asset = self.get_quote_asset(inspected_position.symbol)
-                        if inspected_quote_asset == base_asset and len(self.repository.get_trades(inspected_position.symbol)) > 0:
+                        if inspected_quote_asset == base_asset and \
+                                len(self.repository.get_trades(symbol=inspected_position.symbol,
+                                                               account=self.account.alias)) > 0:
                             [positions_to_use.remove(p) for p in positions_to_use
-                                if self.get_asset(p.symbol) == inspected_quote_asset
-                                and self.get_quote_asset(p.symbol) == inspected_base_asset]
+                             if self.get_asset(p.symbol) == inspected_quote_asset
+                             and self.get_quote_asset(p.symbol) == inspected_base_asset]
 
                             quote_based_position_found = True
                             break
@@ -337,8 +351,8 @@ class BinanceSpot:
                                         totalUnrealizedProfit=total_unrealized_profit,
                                         assets=asset_balances)
 
-                self.repository.process_balances(total_balance)
-                self.repository.process_positions(positions_to_use)
+                self.repository.process_balances(total_balance, account=self.account.alias)
+                self.repository.process_positions(positions_to_use, account=self.account.alias)
                 logger.warning('Synced account')
             except Exception as e:
                 logger.error(f'Failed to process balance: {e}')
@@ -361,7 +375,7 @@ class BinanceSpot:
                     orders.append(order)
             except Exception as e:
                 logger.error(f'Failed to process open orders for symbol: {e}')
-            self.repository.process_orders(orders)
+            self.repository.process_orders(orders, account=self.account.alias)
 
             logger.warning('Synced open orders')
 
@@ -373,7 +387,7 @@ class BinanceSpot:
                 name=f'trade_thread_{symbol}', target=self.process_trades, args=(symbol,), daemon=True)
             symbol_trade_thread.start()
 
-        curr_price = self.repository.get_current_price(symbol)
+        curr_price = self.repository.get_current_price(symbol, account=self.account.alias)
         return curr_price.price if curr_price else 0.0
 
     def process_trades(self, symbol: str):
@@ -401,7 +415,7 @@ class BinanceSpot:
                             qty=float(event['quantity']),
                             timestamp=int(event['trade_time']))
                 logger.debug(f"Processed tick for {tick.symbol}")
-                self.repository.process_tick(tick)
+                self.repository.process_tick(tick, account=self.account.alias)
             # Price update every 5 seconds is fast enough
             time.sleep(5)
         logger.warning('Stopped trade-stream processing')
