@@ -1,8 +1,0 @@
-// Copy this file to config.json in the root folder   
-// supported: binance_futures, bybit_derivatives (NOTE: USDT_Perpetual only)
-
-{
-    "exchange": "binance_futures",
-    "api_key": "",
-    "api_secret": "",
-  }

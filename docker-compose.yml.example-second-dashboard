@@ -3,10 +3,11 @@ services:
   scraper2:
     build: .
     environment:
-      - CONFIG_FILE=/scraper/config.json
+      - CONFIG_FILE=/config/config.json
       - DATABASE_PATH=sqlite:////data/exchanges_db.sqlite
     volumes:
       - $PWD/data:/data
+      - $PWD/config:/config
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
   metabase-app2:
