@@ -10,7 +10,7 @@ services:
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
   metabase-app:
-    image: metabase/metabase:v0.43.1
+    build: metabase_rpi
     container_name: metabase
     hostname: metabase
     volumes:
