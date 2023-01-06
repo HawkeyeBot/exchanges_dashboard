@@ -189,9 +189,9 @@ class BinanceFutures:
                                       ) for position in account['positions'] if position['positionSide'] != 'BOTH']
                 self.repository.process_positions(positions, account=self.account.alias)
                 for position in positions:
-                    if position.position_size > 0.0:
+                    if position.position_size != 0.0:
+                        symbol = position.symbol
                         try:
-                            symbol = position.symbol
                             trade = self.rest_manager.futures_recent_trades(**{'limit': 1, 'symbol': symbol})[0]
                             tick = Tick(symbol=symbol,
                                         price=float(trade['price']),
@@ -200,6 +200,7 @@ class BinanceFutures:
                             self.repository.process_tick(tick, account=self.account.alias)
                         except Exception as e:
                             logger.error(f'Failed to process tick for {symbol}: {e}')
+                        logger.info(f'Synced recent trade price for {symbol}')
                 # [self.add_to_ticker(position.symbol) for position in positions if position.position_size > 0.0]
                 logger.warning('Synced account')
             except Exception as e:
