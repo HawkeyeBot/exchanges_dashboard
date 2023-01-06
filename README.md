@@ -52,4 +52,4 @@ When a value is entered in the DCA field (top left), the DCA quantity and the DC
 * The metabase image is built for x86.
 Therefore, on Raspberry Pi, a new image needs to be created using an ARM based image.
 * I created a `Dockerfile` that creates this kind of image, which supposed to be identical to the `metabase` one.
-* To use the new image, replace line 13 of `docker-compose.yml` from `image: metabase/metabase:v0.43.1` to `build: metabase_rpi`
+* To use the new image, replace line 13 of `docker-compose.yml` from `image: metabase/metabase:latest` to `build: metabase_rpi`
