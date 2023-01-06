@@ -2,7 +2,18 @@
 // supported: binance_futures, bybit_derivatives (NOTE: USDT_Perpetual only)
 
 {
-    "exchange": "binance_futures",
-    "api_key": "",
-    "api_secret": "",
-  }
+  "accounts": [
+    {
+      "alias": "demo_1",
+      "exchange": "binance_futures",
+      "api_key": "",
+      "api_secret": ""
+    },
+    {
+      "alias": "demo_2",
+      "exchange": "binance_futures",
+      "api_key": "",
+      "api_secret": ""
+    }
+  ]
+}

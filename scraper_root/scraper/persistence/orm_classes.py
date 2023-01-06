@@ -1,4 +1,5 @@
-from sqlalchemy import UniqueConstraint, PrimaryKeyConstraint, Column, Integer, DateTime, func, String, Float, Boolean, ForeignKey
+from sqlalchemy import UniqueConstraint, PrimaryKeyConstraint, Column, Integer, DateTime, func, String, Float, Boolean, \
+    ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql.schema import UniqueConstraint
@@ -23,6 +24,7 @@ class OrderEntity(_DECL_BASE):
     activation_price = Column(Float)
     callback_rate = Column(Float)
     close_position = Column(Boolean)
+    account = Column(String)
 
 
 class DailyBalanceEntity(_DECL_BASE):
@@ -31,6 +33,7 @@ class DailyBalanceEntity(_DECL_BASE):
     registration_datetime = Column(DateTime, default=func.now())
     day = Column(DateTime)
     totalWalletBalance = Column(Float)
+    account = Column(String)
 
 
 class BalanceEntity(_DECL_BASE):
@@ -39,6 +42,7 @@ class BalanceEntity(_DECL_BASE):
     registration_datetime = Column(DateTime, default=func.now())
     totalWalletBalance = Column(Float)
     totalUnrealizedProfit = Column(Float)
+    account = Column(String)
     assets = relationship("AssetBalanceEntity",
                           back_populates="balance", cascade="all, delete")
 
@@ -52,6 +56,7 @@ class AssetBalanceEntity(_DECL_BASE):
     unrealizedProfit = Column(Float)
     balance_id = Column(Integer, ForeignKey('BALANCE.id'))
     balance = relationship("BalanceEntity", back_populates="assets")
+    account = Column(String)
 
 
 class PositionEntity(_DECL_BASE):
@@ -64,6 +69,7 @@ class PositionEntity(_DECL_BASE):
     entryPrice = Column(Float)
     quantity = Column(Float)
     initialMargin = Column(Float)
+    account = Column(String)
 
 
 class CurrentPriceEntity(_DECL_BASE):
@@ -72,6 +78,7 @@ class CurrentPriceEntity(_DECL_BASE):
     registration_datetime = Column(DateTime, default=func.now())
     symbol = Column(String)
     price = Column(Float)
+    account = Column(String)
 
 
 class IncomeEntity(_DECL_BASE):
@@ -86,6 +93,7 @@ class IncomeEntity(_DECL_BASE):
     asset = Column(String)
     time = Column(DateTime)
     timestamp = Column(Integer)
+    account = Column(String)
 
     __table_args__ = (
         (UniqueConstraint('transaction_id', sqlite_on_conflict='IGNORE')),
@@ -96,8 +104,7 @@ class TradeEntity(_DECL_BASE):
     __tablename__ = 'Trade'
     id = Column(Integer, primary_key=True)
     registration_datetime = Column(DateTime, default=func.now())
-    order_id = Column(Integer, nullable=False,
-                               unique=True, sqlite_on_conflict_unique='IGNORE')
+    order_id = Column(Integer, nullable=False, unique=True, sqlite_on_conflict_unique='IGNORE')
     symbol = Column(String)
     incomeType = Column(String)
     asset = Column(String)
@@ -106,6 +113,7 @@ class TradeEntity(_DECL_BASE):
     side = Column(String)
     time = Column(DateTime)
     timestamp = Column(Integer)
+    account = Column(String)
 
     __table_args__ = (
         (UniqueConstraint('order_id', sqlite_on_conflict='IGNORE')),
@@ -113,11 +121,12 @@ class TradeEntity(_DECL_BASE):
 
 
 class TradedSymbolEntity(_DECL_BASE):
-    __tablename__= 'TRADED_SYMBOL'
+    __tablename__ = 'TRADED_SYMBOL'
     id = Column(Integer, primary_key=True)
     registration_datetime = Column(DateTime, default=func.now())
     symbol = Column(String, unique=True, nullable=False)
     last_trades_downloaded = Column(DateTime)
+    account = Column(String)
 
 
 class SymbolCheckEntity(_DECL_BASE):
@@ -126,3 +135,4 @@ class SymbolCheckEntity(_DECL_BASE):
     registration_datetime = Column(DateTime, default=func.now())
     symbol = Column(String, unique=True, nullable=False, default=func.now())
     last_checked_datetime = Column(DateTime, default=func.now())
+    account = Column(String)
