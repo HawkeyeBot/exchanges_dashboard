@@ -132,9 +132,15 @@ class Tick:
 
 
 @dataclass
-class ScraperConfig:
+class Account:
+    alias: str = ''
     api_key: str = ''
     api_secret: str = ''
     exchange: str = ''
     test_net: bool = False
+
+
+@dataclass
+class ScraperConfig:
+    accounts: List[Account] = field(default_factory=lambda: [])
     symbols: List[str] = field(default_factory=lambda: [])
