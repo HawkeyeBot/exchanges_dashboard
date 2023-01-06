@@ -19,7 +19,7 @@ logging.basicConfig(
 logger = logging.getLogger()
 
 if __name__ == '__main__':
-    config_file_path = os.environ.get('CONFIG_FILE', 'config.json')
+    config_file_path = os.environ.get('CONFIG_FILE', '/config/config.json')
     logger.info(f"Using config file {config_file_path}")
     with open(config_file_path) as config_file:
         user_config = hjson.load(config_file, object_hook=lambda d: SimpleNamespace(**d))
