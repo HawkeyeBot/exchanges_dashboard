@@ -188,7 +188,7 @@ class Repository:
         if len(incomes) == 0:
             return
         with self.lockable_session as session:
-            logger.warning('Processing incomes')
+            logger.warning(f'{account}: Processing incomes')
 
             session.execute(
                 IncomeEntity.__table__.insert(),

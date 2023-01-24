@@ -38,7 +38,7 @@ class BinanceFutures:
         self.tick_symbols = []
 
     def start(self):
-        print('Starting binance futures scraper')
+        logger.info('Starting binance futures scraper')
 
         for symbol in self.symbols:
             symbol_trade_thread = threading.Thread(

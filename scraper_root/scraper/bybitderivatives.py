@@ -1,4 +1,4 @@
-import datetime
+import logging
 import logging
 import threading
 import time
@@ -6,7 +6,7 @@ from typing import List
 
 from pybit import HTTP
 
-from scraper_root.scraper.data_classes import AssetBalance, Position, ScraperConfig, Tick, Balance, Income, Order, \
+from scraper_root.scraper.data_classes import AssetBalance, Position, Tick, Balance, Income, Order, \
     Account
 from scraper_root.scraper.persistence.repository import Repository
 
@@ -17,6 +17,7 @@ class BybitDerivatives:
     def __init__(self, account: Account, symbols: List[str], repository: Repository, exchange: str = "bybit"):
         logger.info(f"Bybit initializing")
         self.account = account
+        self.alias = self.account.alias
         self.symbols = symbols
         self.api_key = self.account.api_key
         self.secret = self.account.api_secret
@@ -30,10 +31,10 @@ class BybitDerivatives:
         test = self.rest_manager2.api_key_info()
         testlist = ["OK", "ok", "Ok"]
         if test['ret_msg'] in testlist:
-            logger.info(f"rest login succesfull")
+            logger.info(f"{self.alias}: rest login succesfull")
         else:
-            logger.error(f"failed to login")
-            logger.error(f"exiting")
+            logger.error(f"{self.alias}: failed to login")
+            logger.error(f"{self.alias}: exiting")
             raise SystemExit()
 
         # pull all USDT symbols and create a list.
@@ -45,14 +46,14 @@ class BybitDerivatives:
                 if i['quote_currency'] == 'USDT':
                     linearsymbols.append(i['alias'])
         except Exception as e:
-            logger.error(f'Failed to pull linearsymbols: {e}')
+            logger.error(f'{self.alias}: Failed to pull linearsymbols: {e}')
 
         # globals
         global activesymbols
         activesymbols = []  # list
 
     def start(self):
-        print('Starting Bybit Derivatives scraper')
+        logger.info(f'{self.alias}: Starting Bybit Derivatives scraper')
 
         for symbol in self.symbols:
             symbol_trade_thread = threading.Thread(name=f'trade_thread_{symbol}', target=self.process_trades,
@@ -71,8 +72,6 @@ class BybitDerivatives:
         sync_orders_thread = threading.Thread(name=f'sync_orders_thread', target=self.sync_open_orders, daemon=True)
         sync_orders_thread.start()
 
-        sync_trades_thread.join()
-
     def sync_account(self):
         while True:
             try:
@@ -87,11 +86,11 @@ class BybitDerivatives:
                 balance = Balance(totalBalance=assets['USDT']['wallet_balance'],
                                   totalUnrealizedProfit=assets['USDT']['unrealised_pnl'],
                                   assets=asset_balances)
-                self.repository.process_balances(balance=balance, account=self.account.alias)
-                logger.warning('Synced balance')
+                self.repository.process_balances(balance=balance, account=self.alias)
+                logger.warning(f'{self.alias}: Synced balance')
                 time.sleep(100)
             except Exception as e:
-                logger.error(f'Failed to process balance: {e}')
+                logger.error(f'{self.alias}: Failed to process balance: {e}')
                 time.sleep(360)
                 pass
 
@@ -119,12 +118,12 @@ class BybitDerivatives:
                                                       unrealizedProfit=float(x['unrealised_pnl']),
                                                       initial_margin=float(x['position_margin']))
                                              )
-                self.repository.process_positions(positions=positions, account=self.account.alias)
-                logger.warning('Synced positions')
+                self.repository.process_positions(positions=positions, account=self.alias)
+                logger.warning(f'{self.alias}: Synced positions')
                 # logger.info(f'test: {activesymbols}')
                 time.sleep(250)
             except Exception as e:
-                logger.error(f'Failed to process positions: {e}')
+                logger.error(f'{self.alias}: Failed to process positions: {e}')
                 time.sleep(360)
                 pass
 
@@ -153,11 +152,11 @@ class BybitDerivatives:
                                 order.type = item['order_type']
                                 orders.append(order)
                     except Exception as e:
-                        logger.warning(f'Failed to process orders: {e}')
+                        logger.warning(f'{self.alias}: Failed to process orders: {e}')
                         time.sleep(360)
                         pass
-                logger.warning('Synced orders')
-                self.repository.process_orders(orders=orders, account=self.account.alias)
+                logger.warning(f'{self.alias}: Synced orders')
+                self.repository.process_orders(orders=orders, account=self.alias)
             time.sleep(140)  # pause after 1 complete run
 
     # #WS stream bybit; for future use, cannot limit ws stream
@@ -202,11 +201,11 @@ class BybitDerivatives:
                                     price=float(event1['price']),
                                     qty=float(event1['qty']),
                                     timestamp=int(event1['trade_time_ms']))
-                        self.repository.process_tick(tick=tick, account=self.account.alias)
-                    logger.info(f"Processed ticks")
+                        self.repository.process_tick(tick=tick, account=self.alias)
+                    logger.info(f"{self.alias}: Processed ticks")
                     time.sleep(130)
                 except Exception as e:
-                    logger.warning(f'Failed to process trades: {e}')
+                    logger.warning(f'{self.alias}: Failed to process trades: {e}')
                     time.sleep(360)
                     pass
 
@@ -242,13 +241,13 @@ class BybitDerivatives:
                                                         timestamp=timestamp2,
                                                         transaction_id=exchange_income['order_id'])
                                         incomes.append(income)
-                                    self.repository.process_incomes(incomes=incomes, account=self.account.alias)
+                                    self.repository.process_incomes(incomes=incomes, account=self.alias)
                             time.sleep(5)  # pause to not overload the api limit
                     except Exception:
                         time.sleep(360)
                         pass
                 x += 1
-                logger.info('Synced initial trades')
+                logger.info(f'{self.alias}: Synced initial trades')
             else:
                 for i in linearsymbols:
                     try:  # when there is a new symbol, pnl request fails with an error and scripts stops. so in a try and pass.
@@ -268,10 +267,10 @@ class BybitDerivatives:
                                                 timestamp=timestamp2,
                                                 transaction_id=exchange_income['order_id'])
                                 incomes.append(income)
-                            self.repository.process_incomes(incomes=incomes, account=self.account.alias)
+                            self.repository.process_incomes(incomes=incomes, account=self.alias)
                         time.sleep(5)  # pause to not overload the api limit
                     except Exception:
                         time.sleep(360)
                         pass
-                logger.warning('Synced trades')
+                logger.warning(f'{self.alias}: Synced trades')
             time.sleep(120)
