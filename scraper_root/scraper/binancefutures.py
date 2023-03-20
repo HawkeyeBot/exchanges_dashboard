@@ -139,7 +139,7 @@ class BinanceFutures:
 
                 logger.warning('Synced trades')
             except Exception as e:
-                logger.error(f'Failed to process trades: {e}')
+                logger.error(f'{self.account.alias} Failed to process trades: {e}')
 
     def income_to_usdt(self, income: float, income_timestamp: int, asset: str) -> float:
         if is_asset_usd_or_derivative(asset):
@@ -206,7 +206,7 @@ class BinanceFutures:
                 # [self.add_to_ticker(position.symbol) for position in positions if position.position_size > 0.0]
                 logger.warning('Synced account')
             except Exception as e:
-                logger.error(f'Failed to process balance: {e}')
+                logger.error(f'{self.account.alias} Failed to process balance: {e}')
 
     def sync_open_orders(self):
         while True:
@@ -229,7 +229,7 @@ class BinanceFutures:
                 headers = self.rest_manager.response.headers._store
                 logger.info(f'API weight: {int(headers["x-mbx-used-weight-1m"][1])}')
             except Exception as e:
-                logger.error(f'Failed to process open orders for symbol: {e}')
+                logger.error(f'{self.account.alias} Failed to process open orders for symbol: {e}')
 
     def add_to_ticker(self, symbol: str):
         if symbol not in self.tick_symbols:
