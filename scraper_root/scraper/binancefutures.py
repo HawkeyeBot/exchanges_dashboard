@@ -3,6 +3,7 @@ import logging
 import os
 import threading
 import time
+from random import randint
 from typing import List
 
 from unicorn_binance_rest_api import BinanceRestApiManager
@@ -14,12 +15,14 @@ from scraper_root.scraper.persistence.repository import Repository
 
 logger = logging.getLogger()
 
+
 def is_asset_usd_or_derivative(asset: str):
     return asset.lower() in ["usdt", "busd", "usd", "usdc"]
 
 
 class BinanceFutures:
-    def __init__(self, account: Account, symbols: List[str], repository: Repository, exchange: str = "binance.com-futures"):
+    def __init__(self, account: Account, symbols: List[str], repository: Repository,
+                 exchange: str = "binance.com-futures"):
         print('Binance initialized')
         self.account = account
         self.symbols = symbols
@@ -58,11 +61,13 @@ class BinanceFutures:
         sync_orders_thread.start()
 
     def sync_trades(self):
+        max_fetches_in_cycle = 2
         first_trade_reached = False
         while True:
             try:
+                time.sleep(randint(60, 180))
                 counter = 0
-                while first_trade_reached is False and counter < 3:
+                while first_trade_reached is False and counter < max_fetches_in_cycle:
                     counter += 1
                     oldest_income = self.repository.get_oldest_income(account=self.account.alias)
                     if oldest_income is None:
@@ -98,7 +103,7 @@ class BinanceFutures:
                 # WARNING: don't use forward-walking only, because binance only returns max 7 days when using forward-walking
                 # If this logic is ever changed, make sure that it's still able to retrieve all the account history
                 newest_trade_reached = False
-                while newest_trade_reached is False and counter < 3:
+                while newest_trade_reached is False and counter < max_fetches_in_cycle:
                     counter += 1
                     newest_income = self.repository.get_newest_income(account=self.account.alias)
                     if newest_income is None:
@@ -136,28 +141,26 @@ class BinanceFutures:
             except Exception as e:
                 logger.error(f'Failed to process trades: {e}')
 
-            time.sleep(60)
-
     def income_to_usdt(self, income: float, income_timestamp: int, asset: str) -> float:
         if is_asset_usd_or_derivative(asset):
             return income
 
         # Can't get the latest aggr_trades on just the endTime, so this is 'best effort'
         symbol = f"{asset}USDT"
-        aggregated_trades = self.rest_manager.get_aggregate_trades(
-            symbol=symbol,
-            startTime=int(income_timestamp) - 1000,
-            endTime=income_timestamp)
+        candles = self.rest_manager.futures_klines(symbol=symbol,
+                                                   interval='1m',
+                                                   startTime=int(income_timestamp) - 1000,
+                                                   limit=1)
 
-        if len(aggregated_trades) > 0:
-            asset_price = aggregated_trades[-1]['p']
-            income *= float(asset_price)
+        close_price = candles[-1][4]
+        income *= float(close_price)
 
         return income
 
     def sync_account(self):
         while True:
             try:
+                time.sleep(randint(20, 60))
                 account = self.rest_manager.futures_account()
                 asset_balances = [AssetBalance(asset=asset['asset'],
                                                balance=float(
@@ -188,28 +191,26 @@ class BinanceFutures:
                                       initial_margin=float(position['initialMargin'])
                                       ) for position in account['positions'] if position['positionSide'] != 'BOTH']
                 self.repository.process_positions(positions, account=self.account.alias)
+                mark_prices = self.rest_manager.futures_mark_price()
+
                 for position in positions:
                     if position.position_size != 0.0:
                         symbol = position.symbol
-                        try:
-                            trade = self.rest_manager.futures_recent_trades(**{'limit': 1, 'symbol': symbol})[0]
-                            tick = Tick(symbol=symbol,
-                                        price=float(trade['price']),
-                                        qty=float(trade['qty']),
-                                        timestamp=trade['time'])
-                            self.repository.process_tick(tick, account=self.account.alias)
-                        except Exception as e:
-                            logger.error(f'Failed to process tick for {symbol}: {e}')
-                        logger.info(f'Synced recent trade price for {symbol}')
+                        mark_price = [p for p in mark_prices if p['symbol'] == symbol][0]
+                        tick = Tick(symbol=symbol,
+                                    price=float(mark_price['markPrice']),
+                                    qty=-1,
+                                    timestamp=int(mark_price['time']))
+                        self.repository.process_tick(tick, account=self.account.alias)
+                        logger.debug(f'Synced recent trade price for {symbol}')
                 # [self.add_to_ticker(position.symbol) for position in positions if position.position_size > 0.0]
                 logger.warning('Synced account')
             except Exception as e:
                 logger.error(f'Failed to process balance: {e}')
 
-            time.sleep(20)
-
     def sync_open_orders(self):
         while True:
+            time.sleep(randint(30, 120))
             orders = []
             try:
                 open_orders = self.rest_manager.futures_get_open_orders()
@@ -223,11 +224,12 @@ class BinanceFutures:
                     order.type = open_order['type']
                     orders.append(order)
                 self.repository.process_orders(orders, account=self.account.alias)
-                logger.warning('Synced orders')
+                logger.warning(f'Synced orders')
+
+                headers = self.rest_manager.response.headers._store
+                logger.info(f'API weight: {int(headers["x-mbx-used-weight-1m"][1])}')
             except Exception as e:
                 logger.error(f'Failed to process open orders for symbol: {e}')
-
-            time.sleep(30)
 
     def add_to_ticker(self, symbol: str):
         if symbol not in self.tick_symbols:
