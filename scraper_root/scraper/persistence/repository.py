@@ -32,9 +32,9 @@ class Repository:
 
     def update_daily_balance(self, accounts: List[str]):
         while True:
-            for account in accounts:
+            with self.lockable_session as session:
                 try:
-                    with self.lockable_session as session:
+                    for account in accounts:
                         session.query(DailyBalanceEntity).filter(DailyBalanceEntity.account == account).delete()
                         session.commit()
                         result = session.query(BalanceEntity.totalWalletBalance) \
@@ -67,7 +67,8 @@ class Repository:
                                     day += timedelta(days=1)
 
                         [session.add(balance) for balance in daily_balances]
-                        session.commit()
+                    session.commit()
+                    logger.info('Updated daily balances')
                 except Exception as e:
                     logger.error(f'Failed to update daily balance: {e}')
 
