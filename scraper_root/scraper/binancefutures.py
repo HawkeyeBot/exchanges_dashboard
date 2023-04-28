@@ -61,11 +61,10 @@ class BinanceFutures:
         sync_orders_thread.start()
 
     def sync_trades(self):
-        max_fetches_in_cycle = 2
+        max_fetches_in_cycle = 3
         first_trade_reached = False
         while True:
             try:
-                time.sleep(randint(60, 180))
                 counter = 0
                 while first_trade_reached is False and counter < max_fetches_in_cycle:
                     counter += 1
@@ -141,6 +140,8 @@ class BinanceFutures:
             except Exception as e:
                 logger.error(f'{self.account.alias} Failed to process trades: {e}')
 
+            time.sleep(60)
+
     def income_to_usdt(self, income: float, income_timestamp: int, asset: str) -> float:
         if is_asset_usd_or_derivative(asset):
             return income
@@ -160,7 +161,6 @@ class BinanceFutures:
     def sync_account(self):
         while True:
             try:
-                time.sleep(randint(20, 60))
                 account = self.rest_manager.futures_account()
                 asset_balances = [AssetBalance(asset=asset['asset'],
                                                balance=float(
@@ -207,10 +207,11 @@ class BinanceFutures:
                 logger.warning('Synced account')
             except Exception as e:
                 logger.error(f'{self.account.alias} Failed to process balance: {e}')
+            time.sleep(20)
+
 
     def sync_open_orders(self):
         while True:
-            time.sleep(randint(30, 120))
             orders = []
             try:
                 open_orders = self.rest_manager.futures_get_open_orders()
@@ -230,6 +231,8 @@ class BinanceFutures:
                 logger.info(f'API weight: {int(headers["x-mbx-used-weight-1m"][1])}')
             except Exception as e:
                 logger.error(f'{self.account.alias} Failed to process open orders for symbol: {e}')
+
+            time.sleep(30)
 
     def add_to_ticker(self, symbol: str):
         if symbol not in self.tick_symbols:
