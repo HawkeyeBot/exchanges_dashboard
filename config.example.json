@@ -6,12 +6,14 @@
     {
       "alias": "demo_1",
       "exchange": "binance_futures",
+      "test_net": false,
       "api_key": "",
       "api_secret": ""
     },
     {
       "alias": "demo_2",
       "exchange": "binance_futures",
+      "test_net": false,
       "api_key": "",
       "api_secret": ""
     }

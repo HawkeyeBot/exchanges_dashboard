@@ -137,6 +137,7 @@ class Account:
     api_key: str = ''
     api_secret: str = ''
     exchange: str = ''
+    test_net: bool = False
 
 
 @dataclass

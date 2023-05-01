@@ -22,10 +22,13 @@ class BybitDerivatives:
         self.api_key = self.account.api_key
         self.secret = self.account.api_secret
         self.repository = repository
-        #        self.ws_manager = BybitWebsocket(wsURL="wss://stream-testnet.bybit.com/realtime_private",
-        #            api_key=self.api_key, api_secret=self.secret)
-        # bybit connection
-        self.rest_manager2 = HTTP("https://api.bybit.com", api_key=self.api_key, api_secret=self.secret)
+#        self.ws_manager = BybitWebsocket(wsURL="wss://stream-testnet.bybit.com/realtime_private", 
+#            api_key=self.api_key, api_secret=self.secret)
+        #bybit connection
+        api_link = "https://api.bybit.com"
+        if self.account.test_net:
+            api_link = "https://api-testnet.bybit.com"
+        self.rest_manager2 = HTTP(api_link, api_key=self.api_key, api_secret=self.secret)
 
         # check if i am able to login
         test = self.rest_manager2.api_key_info()
