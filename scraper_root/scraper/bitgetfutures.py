@@ -106,7 +106,7 @@ class BitgetFutures:
                                                       entry_price=float(x['averageOpenPrice']),
                                                       position_size=float(x['total']),
                                                       side=side,
-                                                      # make it the same as binance data, bybit data is : item['side'],
+                                                      # make it the same as binance data, bitget data is : item['holdside'],
                                                       unrealizedProfit=float(x['unrealizedPL']),
                                                       initial_margin=float(x['margin']))
                                              )
@@ -206,7 +206,7 @@ class BitgetFutures:
         while True:
             endT = utils.get_timestamp()
             try:  # bitget returns all income, the symbol spcified dosn't matter
-                exchange_pnl = self.rest_manager_bitget.mix_get_accountBill(symbol='BTCUSDT_UMCBL', marginCoin='USDT',startTime=startT,endTime=endT, pageSize='100', lastEndId=lastEnd)
+                exchange_pnl = self.rest_manager_bitget.mix_get_accountBill(symbol='BTCUSDT_UMCBL', marginCoin='USDT',startTime=startT,endTime=endT, pageSize='100')
                 if not exchange_pnl['data']['result']:  # note: None = empty.
                     pass
                 else:
@@ -217,19 +217,19 @@ class BitgetFutures:
                                 income = Income(symbol=exchange_income['symbol'][:-6],
                                                 asset='USDT',
                                                 type=exchange_income['business'],
-                                                income=float(exchange_income['amount']),
+                                                income=float(exchange_income['amount'])+float(exchange_income['fee']),
                                                 timestamp=int(int(exchange_income['cTime'])/1000)*1000,
                                                 transaction_id=exchange_income['id'])
                                 incomes.append(income)
                         self.repository.process_incomes(incomes=incomes, account=self.alias)
                         time.sleep(5)  # pause to not overload the api limit
                         if not exchange_pnl['data']['nextFlag']:
+                            startT = endT
                             break
                         lastEnd = exchange_pnl['data']['lastEndId']
                         exchange_pnl = self.rest_manager_bitget.mix_get_accountBill(symbol='BTCUSDT_UMCBL', marginCoin='USDT',startTime=startT,endTime=endT, pageSize='100', lastEndId=lastEnd)
             except Exception:
                 time.sleep(360)
                 pass
-            startT = endT
             logger.info(f'{self.alias}: Synced trades')
             time.sleep(120)
