@@ -4,7 +4,7 @@
 {
   "accounts": [
     {
-      "alias": "demo_binace",
+      "alias": "demo_binance",
       "exchange": "binance_futures",
       "api_key": "",
       "api_secret": ""
