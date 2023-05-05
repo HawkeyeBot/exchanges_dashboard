@@ -7,6 +7,7 @@ from typing import List
 import hjson
 from scraper.binancefutures import BinanceFutures
 from scraper.bybitderivatives import BybitDerivatives
+from scraper.bitgetfutures import BitgetFutures
 from scraper_root.scraper.binancespot import BinanceSpot
 from scraper_root.scraper.data_classes import ScraperConfig, Account
 from scraper_root.scraper.persistence.repository import Repository
@@ -46,6 +47,8 @@ if __name__ == '__main__':
             scraper = BinanceSpot(account=account, symbols=scraper_config.symbols, repository=repository)
         elif account.exchange == 'bybit_derivatives':
             scraper = BybitDerivatives(account=account, symbols=scraper_config.symbols, repository=repository)
+        elif account.exchange == 'bitget_futures':
+            scraper = BitgetFutures(account=account, symbols=scraper_config.symbols, repository=repository)
         else:
             raise Exception(f'Encountered unsupported exchange {account.exchange}')
 

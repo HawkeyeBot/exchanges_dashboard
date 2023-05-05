@@ -1,19 +1,26 @@
 // Copy this file to config.json in the root folder   
-// supported: binance_futures, bybit_derivatives (NOTE: USDT_Perpetual only)
+// supported: binance_futures, bybit_derivatives (NOTE: USDT_Perpetual only) and bitget_future (NOTE: USDT-M only)
 
 {
   "accounts": [
     {
-      "alias": "demo_1",
+      "alias": "demo_binance",
       "exchange": "binance_futures",
       "api_key": "",
       "api_secret": ""
     },
     {
-      "alias": "demo_2",
-      "exchange": "binance_futures",
+      "alias": "demo_bybit",
+      "exchange": "bybit_derivatives",
       "api_key": "",
       "api_secret": ""
+    }
+    {
+      "alias": "demo_bitget",
+      "exchange": "bitget_futures",
+      "api_key": "",
+      "api_secret": "",
+      "api_passphrase": ""
     }
   ]
 }

@@ -136,6 +136,7 @@ class Account:
     alias: str = ''
     api_key: str = ''
     api_secret: str = ''
+    api_passphrase: str = ''
     exchange: str = ''
 
 
