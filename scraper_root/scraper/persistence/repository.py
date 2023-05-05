@@ -56,8 +56,9 @@ class Repository:
                                         f'AND "Income"."account" = \'{account}\'')
                                     for row in rs:
                                         if row[0] is None:
-                                            continue
-                                        income = float(row[0])
+                                            income = 0
+                                        else:
+                                            income = float(row[0])
                                         daily_balance = DailyBalanceEntity()
                                         daily_balance.day = day
                                         daily_balance.totalWalletBalance = current_balance - income
