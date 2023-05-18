@@ -28,19 +28,16 @@ class BitgetFutures:
         self.rest_manager_bitget = Client(self.api_key, self.secret, passphrase=self.passphrase)
 
         # pull all USDT symbols and create a list.
-        global linearsymbols
-        linearsymbols = []
+        self.linearsymbols = []
         linearsymbolslist = self.rest_manager_bitget.mix_get_symbols_info(productType='UMCBL')
         try:
             for i in linearsymbolslist['data']:
                 if i['quoteCoin'] == 'USDT':
-                    linearsymbols.append(i['symbol'][:-6])
+                    self.linearsymbols.append(i['symbol'][:-6])
         except Exception as e:
             logger.error(f'{self.alias}: Failed to pull linearsymbols: {e}')
 
-        # globals
-        global activesymbols
-        activesymbols = []  # list
+        self.activesymbols = []  # list
 
     def start(self):
         logger.info(f'{self.alias}: Starting Bitget Futures scraper')
@@ -89,10 +86,10 @@ class BitgetFutures:
     def sync_positions(self):
         while True:
             try:
-                global activesymbols
-                activesymbols = ["BTCUSDT"]
+#                global activesymbols
+                self.activesymbols = ["BTCUSDT"]
                 positions = []
-                for i in linearsymbols:
+                for i in self.linearsymbols:
                     exchange_position = self.rest_manager_bitget.mix_get_single_position(symbol="{}_UMCBL".format(i),marginCoin='USDT')
                     for x in exchange_position['data']:
                         if x['total'] != '0':  # filter only items that have positions
@@ -100,7 +97,7 @@ class BitgetFutures:
                                 side = "LONG"
                             else:
                                 side = "SHORT"
-                            activesymbols.append(x['symbol'][:-6])
+                            self.activesymbols.append(x['symbol'][:-6])
 
                             positions.append(Position(symbol=x['symbol'][:-6],
                                                       entry_price=float(x['averageOpenPrice']),
@@ -112,7 +109,7 @@ class BitgetFutures:
                                              )
                 self.repository.process_positions(positions=positions, account=self.alias)
                 logger.warning(f'{self.alias}: Synced positions')
-                # logger.info(f'test: {activesymbols}')
+                # logger.info(f'test: {self.activesymbols}')
                 time.sleep(250)
             except Exception as e:
                 logger.error(f'{self.alias}: Failed to process positions: {e}')
@@ -122,8 +119,8 @@ class BitgetFutures:
     def sync_open_orders(self):
         while True:
             orders = []
-            if len(activesymbols) > 1:  # if activesymbols has more than 1 item do stuff
-                for i in activesymbols:
+            if len(self.activesymbols) > 1:  # if activesymbols has more than 1 item do stuff
+                for i in self.activesymbols:
                     try:  # when there a new symbols a pnl request fails with an error and scripts stops. so in a try and pass.
                         open_orders = self.rest_manager_bitget.mix_get_open_order(symbol="{}_UMCBL".format(i))
                         if not open_orders['data']:  # note: None = empty.
@@ -135,7 +132,7 @@ class BitgetFutures:
                                 order.price = float(item['price'])
                                 order.quantity = float(item['size'])
                                 if item['side'].startswith('open'):  # recode open / close into BUY / SELL
-                                    side = "BUY"  # note: reversed. buy=short,sell = long
+                                    side = "BUY"
                                 else:
                                     side = "SELL"
                                 order.side = side
@@ -183,9 +180,9 @@ class BitgetFutures:
     def process_trades(self, symbol: str):
         while True:
             # logger.info(f"Trade stream started")
-            if len(activesymbols) > 1:  # if activesymbols has more than 1 item do stuff
+            if len(self.activesymbols) > 1:  # if activesymbols has more than 1 item do stuff
                 try:
-                    for i in activesymbols:
+                    for i in self.activesymbols:
                         event = self.rest_manager_bitget.mix_get_fills(symbol="{}_UMCBL".format(i), limit='1')
                         event1 = event['data'][0]
                         tick = Tick(symbol=event1['symbol'][:-6],
@@ -214,9 +211,13 @@ class BitgetFutures:
                         incomes = []
                         for exchange_income in exchange_pnl["data"]['result']:
                             if exchange_income['symbol']:
+                                if exchange_income['business'].startswith('close'):
+                                    income_type = 'REALIZED_PNL'
+                                else:
+                                    income_type = exchange_income['business']
                                 income = Income(symbol=exchange_income['symbol'][:-6],
                                                 asset='USDT',
-                                                type=exchange_income['business'],
+                                                type=income_type,
                                                 income=float(exchange_income['amount'])+float(exchange_income['fee']),
                                                 timestamp=int(int(exchange_income['cTime'])/1000)*1000,
                                                 transaction_id=exchange_income['id'])
