@@ -1,7 +1,8 @@
 import logging
-import logging
 import threading
 import time
+import datetime
+from dateutil import parser
 from typing import List
 
 from pybit import HTTP
@@ -240,8 +241,9 @@ class BybitDerivatives:
                                 else:
                                     incomes = []
                                     for exchange_income in exchange_pnl["result"]['data']:
-                                        timestamp2 = (exchange_income[
-                                                          'created_at'] * 1000)  # *1000 needed for repository.py
+                                        orderdetail = self.rest_manager2.query_conditional_order(symbol=exchange_income['symbol'], stop_order_id=exchange_income['order_id']) #Query order_id for get close timestamp
+                                        updatetime = orderdetail['result']['updated_time']
+                                        timestamp2 = int(datetime.datetime.timestamp(parser.parse(updatetime)) * 1000)
                                         if exchange_income['exec_type'] == 'Trade':
                                             income_type = 'REALIZED_PNL'
                                         else:
@@ -271,7 +273,9 @@ class BybitDerivatives:
                         else:
                             incomes = []
                             for exchange_income in exchange_pnl["result"]['data']:
-                                timestamp2 = (exchange_income['created_at'] * 1000)  # *1000 needed for repository.py
+                                orderdetail = self.rest_manager2.query_conditional_order(symbol=exchange_income['symbol'], stop_order_id=exchange_income['order_id']) #Query order_id for get close timestamp
+                                updatetime = orderdetail['result']['updated_time']
+                                timestamp2 = int(datetime.datetime.timestamp(parser.parse(updatetime)) * 1000)
                                 if exchange_income['exec_type'] == 'Trade':
                                     income_type = 'REALIZED_PNL'
                                 else:
