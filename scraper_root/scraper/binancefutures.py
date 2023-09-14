@@ -161,7 +161,7 @@ class BinanceFutures:
     def sync_account(self):
         while True:
             try:
-                account = self.rest_manager.futures_account()
+                account = self.rest_manager._request('get', self.rest_manager.FUTURES_URL + '/v2/account', True, data={})
                 asset_balances = [AssetBalance(asset=asset['asset'],
                                                balance=float(
                                                    asset['walletBalance']),
