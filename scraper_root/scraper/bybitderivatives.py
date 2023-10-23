@@ -2,6 +2,8 @@ import logging
 import threading
 import time
 import datetime
+
+import pybit
 from dateutil import parser
 from typing import List
 
@@ -101,7 +103,11 @@ class BybitDerivatives:
                 self.activesymbols = ["BTCUSDT"]
                 positions = []
                 for i in self.linearsymbols:
-                    exchange_position = self.rest_manager2.my_position(symbol="{}".format(i))
+                    try:
+                        exchange_position = self.rest_manager2.my_position(symbol="{}".format(i))
+                    except pybit.InvalidRequestError as e:
+                        logger.error(f'{self.alias}: Failed to get symbol position: {e}')
+                        continue
                     for x in exchange_position['result']:
                         if x['position_value'] != 0:  # filter only items that have positions
                             if x['side'] == "Buy":  # recode buy / sell into long / short
