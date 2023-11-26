@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM python:3.8.7-alpine
+FROM python:3.10-alpine
 RUN apk add --no-cache gcc musl-dev linux-headers libffi-dev g++
 RUN pip install --upgrade pip
 COPY scraper_root /scraper/scraper_root
