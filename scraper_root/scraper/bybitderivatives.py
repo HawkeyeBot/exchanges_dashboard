@@ -254,7 +254,7 @@ class BybitDerivatives:
                         logger.warning(f'Synced trades before {readable(oldest_timestamp)}')
 
                     exchange_incomes = self.rest_manager2.get_closed_pnl(category="linear", limit='100', endTime=oldest_timestamp - 1)
-                    logger.info(f"Length of older trades fetched up to {readable(oldest_timestamp)}: {len(exchange_incomes)}")
+                    logger.info(f"Length of older trades fetched up to {readable(oldest_timestamp)}: {len(exchange_incomes['result']['list'])}")
                     incomes = []
 
                     for exchange_income in exchange_incomes['result']['list']:
@@ -293,7 +293,7 @@ class BybitDerivatives:
                         exchange_incomes = self.rest_manager2.get_closed_pnl(category="linear", limit='100', endTime=oldest_timestamp - 1,
                                                                              cursor=exchange_incomes['result']['nextPageCursor'])
                     self.repository.process_incomes(incomes, account=self.account.alias)
-                    if len(exchange_incomes) < 1:
+                    if len(incomes) < 1:
                         first_trade_reached = True
 
                 # WARNING: don't use forward-walking only, because binance only returns max 7 days when using forward-walking
@@ -310,7 +310,7 @@ class BybitDerivatives:
                         logger.warning(f'Synced newer trades since {readable(newest_timestamp)}')
 
                     exchange_incomes = self.rest_manager2.get_closed_pnl(category="linear", limit='100', startTime=newest_timestamp + 1)
-                    logger.info(f"Length of newer trades fetched from {readable(newest_timestamp)}: {len(exchange_incomes)}")
+                    logger.info(f"Length of newer trades fetched from {readable(newest_timestamp)}: {len(exchange_incomes['result']['list'])}")
                     incomes = []
                     for exchange_income in exchange_incomes['result']['list']:
                         asset = self.get_asset(exchange_income['symbol'])
@@ -348,7 +348,7 @@ class BybitDerivatives:
                         exchange_incomes = self.rest_manager2.get_closed_pnl(category="linear", limit='100', startTime=newest_timestamp + 1,
                                                                              cursor=exchange_incomes['result']['nextPageCursor'])
                     self.repository.process_incomes(incomes, account=self.account.alias)
-                    if len(exchange_incomes) < 1:
+                    if len(incomes) < 1:
                         newest_trade_reached = True
 
                 logger.warning('Synced trades')
