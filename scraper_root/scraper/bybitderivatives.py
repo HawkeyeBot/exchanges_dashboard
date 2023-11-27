@@ -71,7 +71,7 @@ class BybitDerivatives:
         logger.info(f'{self.alias}: Starting Bybit Derivatives scraper')
 
         for symbol in self.symbols:
-            symbol_trade_thread = threading.Thread(name=f'trade_thread_{symbol}', target=self.process_trades,
+            symbol_trade_thread = threading.Thread(name=f'trade_thread_{symbol}', target=self.sync_current_price,
                                                    args=(symbol,), daemon=True)
             symbol_trade_thread.start()
 
@@ -121,28 +121,23 @@ class BybitDerivatives:
                 #                global activesymbols
                 self.activesymbols = ["BTCUSDT"]
                 positions = []
-                for symbol in self.linearsymbols:
-                    try:
-                        exchange_position = self.rest_manager2.get_positions(category='linear', symbol=symbol)
-                    except FailedRequestError as e:
-                        logger.error(f'{self.alias}: Failed to get symbol position: {e}')
-                        continue
-                    for x in exchange_position['result']['list']:
-                        if float(x['size']) != 0:  # filter only items that have positions
-                            if x['positionIdx'] == 1:  # recode buy / sell into long / short
-                                side = "LONG"
-                            else:
-                                side = "SHORT"
-                            self.activesymbols.append(x['symbol'])
+                exchange_position = self.rest_manager2.get_positions(category='linear', settleCoin="USDT")
+                for x in exchange_position['result']['list']:
+                    if float(x['size']) != 0:  # filter only items that have positions
+                        if x['positionIdx'] == 1:  # recode buy / sell into long / short
+                            side = "LONG"
+                        else:
+                            side = "SHORT"
+                        self.activesymbols.append(x['symbol'])
 
-                            positions.append(Position(symbol=x['symbol'],
-                                                      entry_price=float(x['avgPrice']),
-                                                      position_size=float(x['size']),
-                                                      side=side,
-                                                      # make it the same as binance data, bybit data is : item['side'],
-                                                      unrealizedProfit=float(x['unrealisedPnl']),
-                                                      initial_margin=0.0)  # TODO: float(x['position_margin'])
-                                             )
+                        positions.append(Position(symbol=x['symbol'],
+                                                  entry_price=float(x['avgPrice']),
+                                                  position_size=float(x['size']),
+                                                  side=side,
+                                                  # make it the same as binance data, bybit data is : item['side'],
+                                                  unrealizedProfit=float(x['unrealisedPnl']),
+                                                  initial_margin=0.0)  # TODO: float(x['position_margin'])
+                                         )
                 self.repository.process_positions(positions=positions, account=self.alias)
                 logger.warning(f'{self.alias}: Synced positions')
                 # logger.info(f'test: {self.activesymbols}')
@@ -150,7 +145,6 @@ class BybitDerivatives:
             except Exception as e:
                 logger.error(f'{self.alias}: Failed to process positions: {e}')
                 time.sleep(360)
-                pass
 
     def sync_open_orders(self):
         while True:
@@ -224,25 +218,24 @@ class BybitDerivatives:
     #             if data:
     #                 print(data)
 
-    def process_trades(self, symbol: str):
+    def sync_current_price(self, symbol: str):
         while True:
             # logger.info(f"Trade stream started")
-            if len(self.activesymbols) > 1:  # if activesymbols has more than 1 item do stuff
-                try:
-                    for i in self.activesymbols:
-                        event = self.rest_manager2.get_public_trade_history(category="linear", symbol="{}".format(i), limit='1')
-                        event1 = event['result']['list'][0]
-                        tick = Tick(symbol=event1['symbol'],
-                                    price=float(event1['price']),
-                                    qty=float(event1['size']),
-                                    timestamp=int(event1['time']))
-                        self.repository.process_tick(tick=tick, account=self.alias)
-                    logger.info(f"{self.alias}: Processed ticks")
-                    time.sleep(130)
-                except Exception as e:
-                    logger.warning(f'{self.alias}: Failed to process trades: {e}')
-                    time.sleep(360)
-                    pass
+            try:
+                for i in self.activesymbols:
+                    event = self.rest_manager2.get_public_trade_history(category="linear", symbol="{}".format(i), limit='1')
+                    event1 = event['result']['list'][0]
+                    tick = Tick(symbol=event1['symbol'],
+                                price=float(event1['price']),
+                                qty=float(event1['size']),
+                                timestamp=int(event1['time']))
+                    self.repository.process_tick(tick=tick, account=self.alias)
+                logger.info(f"{self.alias}: Processed ticks")
+                time.sleep(60)
+            except Exception as e:
+                logger.warning(f'{self.alias}: Failed to process ticks: {e}')
+                time.sleep(120)
+                pass
 
     def sync_trades(self):
         max_fetches_in_cycle = 3
@@ -383,5 +376,9 @@ class BybitDerivatives:
 
     def get_asset(self, symbol: str):
         if symbol not in self.asset_symbol:
-            self.asset_symbol[symbol] = self.rest_manager2.get_instruments_info(category="linear", symbol=symbol)['result']['list'][0]['quoteCoin']
-        return self.asset_symbol[symbol]
+            try:
+                self.asset_symbol[symbol] = self.rest_manager2.get_instruments_info(category="linear", symbol=symbol)['result']['list'][0]['quoteCoin']
+                return self.asset_symbol[symbol]
+            except:
+                logger.exception(f"Failed to retrieve quoteCoin for symbol {symbol}, falling back to USDT")
+                return 'USDT'
