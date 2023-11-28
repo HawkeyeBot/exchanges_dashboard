@@ -153,40 +153,36 @@ class BybitDerivatives:
                 for symbol in self.activesymbols:
                     try:  # when there a new symbols a pnl request fails with an error and scripts stops. so in a try and pass.
                         open_orders = self.rest_manager2.get_open_orders(category='linear', symbol=symbol, limit=50)  # queries open orders only by default
-                        if not open_orders['result']['data']:  # note: None = empty.
-                            pass
-                        else:
-                            for item in open_orders["result"]['data']:
-                                order = Order()
-                                order.symbol = item['symbol']
-                                order.price = float(item['price'])
-                                order.quantity = float(item['qty'])
-                                order.side = item['side'].upper()  # upper() to make it the same as binance
-                                # bybit has no 'position side', assuming 'side'
-                                #                                if item['side'] == "Buy":  # recode buy / sell into long / short
-                                #                                    side = "SHORT"  # note: reversed. buy=short,sell = long
-                                #                                else:
-                                #                                    side = "LONG"
-                                if item['side'] == "Buy":  # recode buy / sell into long / short
-                                    if item['reduce_only']:
-                                        side = "SHORT"
-                                    else:
-                                        side = "LONG"
+                        for item in open_orders["result"]['list']:
+                            order = Order()
+                            order.symbol = item['symbol']
+                            order.price = float(item['price'])
+                            order.quantity = float(item['qty'])
+                            order.side = item['side'].upper()  # upper() to make it the same as binance
+                            # bybit has no 'position side', assuming 'side'
+                            #                                if item['side'] == "Buy":  # recode buy / sell into long / short
+                            #                                    side = "SHORT"  # note: reversed. buy=short,sell = long
+                            #                                else:
+                            #                                    side = "LONG"
+                            if item['side'] == "Buy":  # recode buy / sell into long / short
+                                if item['reduceOnly']:
+                                    side = "SHORT"
                                 else:
-                                    if item['reduce_only']:
-                                        side = "LONG"
-                                    else:
-                                        side = "SHORT"
-                                order.position_side = side
-                                order.type = item['order_type']
-                                orders.append(order)
-                    except Exception as e:
-                        logger.warning(f'{self.alias}: Failed to process orders: {e}')
-                        time.sleep(360)
-                        pass
+                                    side = "LONG"
+                            else:
+                                if item['reduceOnly']:
+                                    side = "LONG"
+                                else:
+                                    side = "SHORT"
+                            order.position_side = side
+                            order.type = item['orderType']
+                            orders.append(order)
+                    except:
+                        logger.exception(f'{self.alias}: Failed to process orders')
+                        time.sleep(30)
                 logger.warning(f'{self.alias}: Synced orders')
                 self.repository.process_orders(orders=orders, account=self.alias)
-            time.sleep(140)  # pause after 1 complete run
+            time.sleep(120)  # pause after 1 complete run
 
     # #WS stream bybit; for future use, cannot limit ws stream
     #     def process_trades(self, symbol: str):
