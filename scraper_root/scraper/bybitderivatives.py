@@ -3,17 +3,28 @@ import threading
 import time
 import datetime
 
-import pybit
 from dateutil import parser
-from typing import List
+from typing import List, Dict
 
-from pybit import HTTP
+from pybit.exceptions import FailedRequestError
+from pybit.unified_trading import HTTP
 
 from scraper_root.scraper.data_classes import AssetBalance, Position, Tick, Balance, Income, Order, \
     Account
 from scraper_root.scraper.persistence.repository import Repository
+from scraper_root.scraper.utils import readable
 
 logger = logging.getLogger()
+
+
+def is_asset_usd_or_derivative(symbol: str):
+    if 'usdt' in symbol.lower():
+        return True
+    if 'usd' in symbol.lower():
+        return True
+    if 'usdc' in symbol.lower():
+        return True
+    return False
 
 
 class BybitDerivatives:
@@ -28,12 +39,11 @@ class BybitDerivatives:
         #        self.ws_manager = BybitWebsocket(wsURL="wss://stream-testnet.bybit.com/realtime_private",
         #            api_key=self.api_key, api_secret=self.secret)
         # bybit connection
-        self.rest_manager2 = HTTP("https://api.bybit.com", api_key=self.api_key, api_secret=self.secret)
+        self.rest_manager2 = HTTP(testnet=False, api_key=self.api_key, api_secret=self.secret)
 
         # check if i am able to login
-        test = self.rest_manager2.api_key_info()
-        testlist = ["OK", "ok", "Ok"]
-        if test['ret_msg'] in testlist:
+        test = self.rest_manager2.get_api_key_information()
+        if test['retCode'] == 0:
             logger.info(f"{self.alias}: rest login succesfull")
         else:
             logger.error(f"{self.alias}: failed to login")
@@ -42,23 +52,26 @@ class BybitDerivatives:
 
         # pull all USDT symbols and create a list.
         self.linearsymbols = []
-        linearsymbolslist = self.rest_manager2.query_symbol()
+        linearsymbolslist = self.rest_manager2.get_instruments_info(category='linear',
+                                                                    limit=1000,
+                                                                    status='Trading')
         try:
-            for i in linearsymbolslist['result']:
-                if i['quote_currency'] == 'USDT':
-                    self.linearsymbols.append(i['alias'])
+            for i in linearsymbolslist['result']['list']:
+                if i['quoteCoin'] == 'USDT':
+                    self.linearsymbols.append(i['symbol'])
         except Exception as e:
             logger.error(f'{self.alias}: Failed to pull linearsymbols: {e}')
 
         # globals
-#        global activesymbols
+        #        global activesymbols
         self.activesymbols = []  # list
+        self.asset_symbol: Dict[str, str] = {}
 
     def start(self):
         logger.info(f'{self.alias}: Starting Bybit Derivatives scraper')
 
         for symbol in self.symbols:
-            symbol_trade_thread = threading.Thread(name=f'trade_thread_{symbol}', target=self.process_trades,
+            symbol_trade_thread = threading.Thread(name=f'trade_thread_{symbol}', target=self.sync_current_price,
                                                    args=(symbol,), daemon=True)
             symbol_trade_thread.start()
 
@@ -77,17 +90,23 @@ class BybitDerivatives:
     def sync_account(self):
         while True:
             try:
-                account = self.rest_manager2.get_wallet_balance()
-                assets = account['result']
-                asset_balances = [AssetBalance(asset=asset,
-                                               balance=float(assets[asset]['wallet_balance']),
-                                               unrealizedProfit=float(assets[asset]['unrealised_pnl'])
-                                               ) for asset in assets]
+                account = self.rest_manager2.get_wallet_balance(accountType='CONTRACT')
+                assets = account['result']['list']
+                balances = []
+                total_usdt_balance = 0
+                total_upnl = 0
+                for asset in assets:
+                    for coin in asset['coin']:
+                        if coin['coin'] == 'USDT':
+                            total_usdt_balance += float(coin['walletBalance'])
+                            total_upnl += float(coin['unrealisedPnl'])
+                        else:
+                            balances.append(AssetBalance(asset=coin['coin'], balance=float(coin['walletBalance']), unrealizedProfit=float(coin['unrealisedPnl'])))
 
                 # bybit has no total assets balance, assuming USDT
-                balance = Balance(totalBalance=assets['USDT']['wallet_balance'],
-                                  totalUnrealizedProfit=assets['USDT']['unrealised_pnl'],
-                                  assets=asset_balances)
+                balance = Balance(totalBalance=total_usdt_balance,
+                                  totalUnrealizedProfit=total_upnl,
+                                  assets=balances)
                 self.repository.process_balances(balance=balance, account=self.alias)
                 logger.warning(f'{self.alias}: Synced balance')
                 time.sleep(100)
@@ -99,31 +118,26 @@ class BybitDerivatives:
     def sync_positions(self):
         while True:
             try:
-#                global activesymbols
+                #                global activesymbols
                 self.activesymbols = ["BTCUSDT"]
                 positions = []
-                for i in self.linearsymbols:
-                    try:
-                        exchange_position = self.rest_manager2.my_position(symbol="{}".format(i))
-                    except pybit.InvalidRequestError as e:
-                        logger.error(f'{self.alias}: Failed to get symbol position: {e}')
-                        continue
-                    for x in exchange_position['result']:
-                        if x['position_value'] != 0:  # filter only items that have positions
-                            if x['side'] == "Buy":  # recode buy / sell into long / short
-                                side = "LONG"
-                            else:
-                                side = "SHORT"
-                            self.activesymbols.append(x['symbol'])
+                exchange_position = self.rest_manager2.get_positions(category='linear', settleCoin="USDT")
+                for x in exchange_position['result']['list']:
+                    if float(x['size']) != 0:  # filter only items that have positions
+                        if x['positionIdx'] == 1:  # recode buy / sell into long / short
+                            side = "LONG"
+                        else:
+                            side = "SHORT"
+                        self.activesymbols.append(x['symbol'])
 
-                            positions.append(Position(symbol=x['symbol'],
-                                                      entry_price=float(x['entry_price']),
-                                                      position_size=float(x['size']),
-                                                      side=side,
-                                                      # make it the same as binance data, bybit data is : item['side'],
-                                                      unrealizedProfit=float(x['unrealised_pnl']),
-                                                      initial_margin=float(x['position_margin']))
-                                             )
+                        positions.append(Position(symbol=x['symbol'],
+                                                  entry_price=float(x['avgPrice']),
+                                                  position_size=float(x['size']),
+                                                  side=side,
+                                                  # make it the same as binance data, bybit data is : item['side'],
+                                                  unrealizedProfit=float(x['unrealisedPnl']),
+                                                  initial_margin=0.0)  # TODO: float(x['position_margin'])
+                                         )
                 self.repository.process_positions(positions=positions, account=self.alias)
                 logger.warning(f'{self.alias}: Synced positions')
                 # logger.info(f'test: {self.activesymbols}')
@@ -131,49 +145,44 @@ class BybitDerivatives:
             except Exception as e:
                 logger.error(f'{self.alias}: Failed to process positions: {e}')
                 time.sleep(360)
-                pass
 
     def sync_open_orders(self):
         while True:
             orders = []
             if len(self.activesymbols) > 1:  # if activesymbols has more than 1 item do stuff
-                for i in self.activesymbols:
+                for symbol in self.activesymbols:
                     try:  # when there a new symbols a pnl request fails with an error and scripts stops. so in a try and pass.
-                        open_orders = self.rest_manager2.get_active_order(symbol="{}".format(i), order_status="New")
-                        if not open_orders['result']['data']:  # note: None = empty.
-                            pass
-                        else:
-                            for item in open_orders["result"]['data']:
-                                order = Order()
-                                order.symbol = item['symbol']
-                                order.price = float(item['price'])
-                                order.quantity = float(item['qty'])
-                                order.side = item['side'].upper()  # upper() to make it the same as binance
-                                # bybit has no 'position side', assuming 'side'
-#                                if item['side'] == "Buy":  # recode buy / sell into long / short
-#                                    side = "SHORT"  # note: reversed. buy=short,sell = long
-#                                else:
-#                                    side = "LONG"
-                                if item['side'] == "Buy":  # recode buy / sell into long / short
-                                    if item['reduce_only']:
-                                        side = "SHORT"
-                                    else:
-                                        side = "LONG"
+                        open_orders = self.rest_manager2.get_open_orders(category='linear', symbol=symbol, limit=50)  # queries open orders only by default
+                        for item in open_orders["result"]['list']:
+                            order = Order()
+                            order.symbol = item['symbol']
+                            order.price = float(item['price'])
+                            order.quantity = float(item['qty'])
+                            order.side = item['side'].upper()  # upper() to make it the same as binance
+                            # bybit has no 'position side', assuming 'side'
+                            #                                if item['side'] == "Buy":  # recode buy / sell into long / short
+                            #                                    side = "SHORT"  # note: reversed. buy=short,sell = long
+                            #                                else:
+                            #                                    side = "LONG"
+                            if item['side'] == "Buy":  # recode buy / sell into long / short
+                                if item['reduceOnly']:
+                                    side = "SHORT"
                                 else:
-                                    if item['reduce_only']:
-                                        side = "LONG"
-                                    else:
-                                        side = "SHORT"
-                                order.position_side = side
-                                order.type = item['order_type']
-                                orders.append(order)
-                    except Exception as e:
-                        logger.warning(f'{self.alias}: Failed to process orders: {e}')
-                        time.sleep(360)
-                        pass
+                                    side = "LONG"
+                            else:
+                                if item['reduceOnly']:
+                                    side = "LONG"
+                                else:
+                                    side = "SHORT"
+                            order.position_side = side
+                            order.type = item['orderType']
+                            orders.append(order)
+                    except:
+                        logger.exception(f'{self.alias}: Failed to process orders')
+                        time.sleep(30)
                 logger.warning(f'{self.alias}: Synced orders')
                 self.repository.process_orders(orders=orders, account=self.alias)
-            time.sleep(140)  # pause after 1 complete run
+            time.sleep(120)  # pause after 1 complete run
 
     # #WS stream bybit; for future use, cannot limit ws stream
     #     def process_trades(self, symbol: str):
@@ -205,99 +214,167 @@ class BybitDerivatives:
     #             if data:
     #                 print(data)
 
-    def process_trades(self, symbol: str):
+    def sync_current_price(self, symbol: str):
         while True:
             # logger.info(f"Trade stream started")
-            if len(self.activesymbols) > 1:  # if activesymbols has more than 1 item do stuff
-                try:
-                    for i in self.activesymbols:
-                        event = self.rest_manager2.public_trading_records(symbol="{}".format(i), limit='1')
-                        event1 = event['result'][0]
-                        tick = Tick(symbol=event1['symbol'],
-                                    price=float(event1['price']),
-                                    qty=float(event1['qty']),
-                                    timestamp=int(event1['trade_time_ms']))
-                        self.repository.process_tick(tick=tick, account=self.alias)
-                    logger.info(f"{self.alias}: Processed ticks")
-                    time.sleep(130)
-                except Exception as e:
-                    logger.warning(f'{self.alias}: Failed to process trades: {e}')
-                    time.sleep(360)
-                    pass
+            try:
+                for i in self.activesymbols:
+                    event = self.rest_manager2.get_public_trade_history(category="linear", symbol="{}".format(i), limit='1')
+                    event1 = event['result']['list'][0]
+                    tick = Tick(symbol=event1['symbol'],
+                                price=float(event1['price']),
+                                qty=float(event1['size']),
+                                timestamp=int(event1['time']))
+                    self.repository.process_tick(tick=tick, account=self.alias)
+                logger.info(f"{self.alias}: Processed ticks")
+                time.sleep(60)
+            except Exception as e:
+                logger.warning(f'{self.alias}: Failed to process ticks: {e}')
+                time.sleep(120)
+                pass
 
     def sync_trades(self):
-        x = 0  # not pythonic but it works
+        max_fetches_in_cycle = 3
+        first_trade_reached = False
         while True:
-            if x == 0:
-                # fill table on first run with 50 pages x 50 limit. TODO: full all-time history data and limit to one? page after inital fill
-                for i in self.linearsymbols:
-                    try:  # when there is a new symbol, pnl request fails with an error and scripts stops. so in a try and pass.
-                        exchange_pnl = self.rest_manager2.closed_profit_and_loss(symbol="{}".format(i), limit='50')
-                        #    pprint (exchange_pnl)
-                        if not exchange_pnl['result']['data']:  # note: None = empty.
-                            pass
-                        else:
-                            for page in range(1, 50):
-                                exchange_pnl = self.rest_manager2.closed_profit_and_loss(symbol="{}".format(i),
-                                                                                         limit='50',
-                                                                                         page="{}".format(page))
-                                # print (exchange_pnl["result"]['data'])
-                                if not exchange_pnl['result']['data']:  # note: None = empty.
-                                    pass
-                                else:
-                                    incomes = []
-                                    for exchange_income in exchange_pnl["result"]['data']:
-                                        orderdetail = self.rest_manager2.query_conditional_order(symbol=exchange_income['symbol'], stop_order_id=exchange_income['order_id']) #Query order_id for get close timestamp
-                                        updatetime = orderdetail['result']['updated_time']
-                                        timestamp2 = int(datetime.datetime.timestamp(parser.parse(updatetime)) * 1000)
-                                        if exchange_income['exec_type'] == 'Trade':
-                                            income_type = 'REALIZED_PNL'
-                                        else:
-                                            income_type = exchange_income['exec_type']
-                                        income = Income(symbol=exchange_income['symbol'],
-                                                        asset='USDT',
-                                                        type=income_type,
-                                                        income=float(exchange_income['closed_pnl']),
-                                                        # timestamp=exchange_income['created_at'],
-                                                        timestamp=timestamp2,
-                                                        transaction_id=exchange_income['order_id'])
-                                        incomes.append(income)
-                                    self.repository.process_incomes(incomes=incomes, account=self.alias)
-                            time.sleep(5)  # pause to not overload the api limit
-                    except Exception:
-                        time.sleep(360)
-                        pass
-                x += 1
-                logger.info(f'{self.alias}: Synced initial trades')
-            else:
-                for i in self.linearsymbols:
-                    try:  # when there is a new symbol, pnl request fails with an error and scripts stops. so in a try and pass.
-                        exchange_pnl = self.rest_manager2.closed_profit_and_loss(symbol="{}".format(i), limit='50')
-                        #    pprint (exchange_pnl)
-                        if not exchange_pnl['result']['data']:  # note: None = empty.
-                            pass
-                        else:
-                            incomes = []
-                            for exchange_income in exchange_pnl["result"]['data']:
-                                orderdetail = self.rest_manager2.query_conditional_order(symbol=exchange_income['symbol'], stop_order_id=exchange_income['order_id']) #Query order_id for get close timestamp
-                                updatetime = orderdetail['result']['updated_time']
-                                timestamp2 = int(datetime.datetime.timestamp(parser.parse(updatetime)) * 1000)
-                                if exchange_income['exec_type'] == 'Trade':
-                                    income_type = 'REALIZED_PNL'
-                                else:
-                                    income_type = exchange_income['exec_type']
-                                income = Income(symbol=exchange_income['symbol'],
-                                                asset='USDT',
-                                                type=income_type,
-                                                income=float(exchange_income['closed_pnl']),
-                                                # timestamp=exchange_income['created_at'],
-                                                timestamp=timestamp2,
-                                                transaction_id=exchange_income['order_id'])
-                                incomes.append(income)
-                            self.repository.process_incomes(incomes=incomes, account=self.alias)
-                        time.sleep(5)  # pause to not overload the api limit
-                    except Exception:
-                        time.sleep(360)
-                        pass
-                logger.warning(f'{self.alias}: Synced trades')
-            time.sleep(120)
+            try:
+                counter = 0
+                while first_trade_reached is False and counter < max_fetches_in_cycle:
+                    counter += 1
+                    oldest_income = self.repository.get_oldest_income(account=self.account.alias)
+                    if oldest_income is None:
+                        # API will return inclusive, don't want to return the oldest record again
+                        oldest_timestamp = int(datetime.datetime.now(datetime.timezone.utc).timestamp() * 1000)
+                    else:
+                        oldest_timestamp = oldest_income.timestamp
+                        logger.warning(f'Synced trades before {readable(oldest_timestamp)}')
+
+                    exchange_incomes = self.rest_manager2.get_closed_pnl(category="linear", limit='100', endTime=oldest_timestamp - 1)
+                    logger.info(f"Length of older trades fetched up to {readable(oldest_timestamp)}: {len(exchange_incomes['result']['list'])}")
+                    incomes = []
+
+                    for exchange_income in exchange_incomes['result']['list']:
+                        asset = self.get_asset(exchange_income['symbol'])
+                        if not is_asset_usd_or_derivative(exchange_income['symbol']):
+                            exchange_income['income'] = self.income_to_usdt(
+                                float(exchange_income['income']),
+                                int(exchange_income['updatedTime']),
+                                asset)
+
+                        income = Income(symbol=exchange_income['symbol'],
+                                        asset="USDT",
+                                        type='REALIZED_PNL',
+                                        income=float(exchange_income['closedPnl']),
+                                        timestamp=int(exchange_income['updatedTime']),
+                                        transaction_id=exchange_income['orderId'])
+                        incomes.append(income)
+
+                    while exchange_incomes['result']['nextPageCursor'] != '':
+                        for exchange_income in exchange_incomes['result']['list']:
+                            asset = self.get_asset(exchange_income['symbol'])
+                            if not is_asset_usd_or_derivative(exchange_income['symbol']):
+                                exchange_income['income'] = self.income_to_usdt(
+                                    float(exchange_income['income']),
+                                    int(exchange_income['time']),
+                                    asset)
+
+                            income = Income(symbol=exchange_income['symbol'],
+                                            asset="USDT",
+                                            type='REALIZED_PNL',
+                                            income=float(exchange_income['closedPnl']),
+                                            timestamp=int(exchange_income['updatedTime']),
+                                            transaction_id=exchange_income['orderId'])
+                            incomes.append(income)
+
+                        exchange_incomes = self.rest_manager2.get_closed_pnl(category="linear", limit='100', endTime=oldest_timestamp - 1,
+                                                                             cursor=exchange_incomes['result']['nextPageCursor'])
+                    self.repository.process_incomes(incomes, account=self.account.alias)
+                    if len(incomes) < 1:
+                        first_trade_reached = True
+
+                # WARNING: don't use forward-walking only, because binance only returns max 7 days when using forward-walking
+                # If this logic is ever changed, make sure that it's still able to retrieve all the account history
+                newest_trade_reached = False
+                while newest_trade_reached is False and counter < max_fetches_in_cycle:
+                    counter += 1
+                    newest_income = self.repository.get_newest_income(account=self.account.alias)
+                    if newest_income is None:
+                        # only support trades after 2020, so no trade can be before that
+                        newest_timestamp = int(datetime.datetime.fromisoformat('2020-01-01 00:00:00+00:00').timestamp() * 1000)
+                    else:
+                        newest_timestamp = newest_income.timestamp
+                        logger.warning(f'Synced newer trades since {readable(newest_timestamp)}')
+
+                    exchange_incomes = self.rest_manager2.get_closed_pnl(category="linear", limit='100', startTime=newest_timestamp + 1)
+                    logger.info(f"Length of newer trades fetched from {readable(newest_timestamp)}: {len(exchange_incomes['result']['list'])}")
+                    incomes = []
+                    for exchange_income in exchange_incomes['result']['list']:
+                        asset = self.get_asset(exchange_income['symbol'])
+                        if not is_asset_usd_or_derivative(exchange_income['symbol']):
+                            exchange_income['income'] = self.income_to_usdt(
+                                float(exchange_income['income']),
+                                int(exchange_income['updatedTime']),
+                                asset)
+
+                        income = Income(symbol=exchange_income['symbol'],
+                                        asset="USDT",
+                                        type='REALIZED_PNL',
+                                        income=float(exchange_income['closedPnl']),
+                                        timestamp=int(exchange_income['updatedTime']),
+                                        transaction_id=exchange_income['orderId'])
+                        incomes.append(income)
+
+                    while exchange_incomes['result']['nextPageCursor'] != '':
+                        for exchange_income in exchange_incomes['result']['list']:
+                            asset = self.get_asset(exchange_income['symbol'])
+                            if not is_asset_usd_or_derivative(exchange_income['symbol']):
+                                exchange_income['income'] = self.income_to_usdt(
+                                    float(exchange_income['income']),
+                                    int(exchange_income['updatedTime']),
+                                    asset)
+
+                            income = Income(symbol=exchange_income['symbol'],
+                                            asset="USDT",
+                                            type='REALIZED_PNL',
+                                            income=float(exchange_income['closedPnl']),
+                                            timestamp=int(exchange_income['updatedTime']),
+                                            transaction_id=exchange_income['orderId'])
+                            incomes.append(income)
+
+                        exchange_incomes = self.rest_manager2.get_closed_pnl(category="linear", limit='100', startTime=newest_timestamp + 1,
+                                                                             cursor=exchange_incomes['result']['nextPageCursor'])
+                    self.repository.process_incomes(incomes, account=self.account.alias)
+                    if len(incomes) < 1:
+                        newest_trade_reached = True
+
+                logger.warning('Synced trades')
+            except Exception as e:
+                logger.exception(f'{self.account.alias} Failed to process trades: {e}')
+
+            time.sleep(60)
+
+    def income_to_usdt(self, income: float, income_timestamp: int, asset: str) -> float:
+        if is_asset_usd_or_derivative(asset):
+            return income
+
+        # Can't get the latest aggr_trades on just the endTime, so this is 'best effort'
+        symbol = f"{asset}USDT"
+        candles = self.rest_manager2.get_kline(category="linear",
+                                               symbol=symbol,
+                                               interval='1',
+                                               start=int(income_timestamp) - 1000,
+                                               limit=1)
+
+        close_price = candles['result']['list'][-1][4]
+        income *= float(close_price)
+
+        return income
+
+    def get_asset(self, symbol: str):
+        if symbol not in self.asset_symbol:
+            try:
+                self.asset_symbol[symbol] = self.rest_manager2.get_instruments_info(category="linear", symbol=symbol)['result']['list'][0]['quoteCoin']
+                return self.asset_symbol[symbol]
+            except:
+                logger.exception(f"Failed to retrieve quoteCoin for symbol {symbol}, falling back to USDT")
+                return 'USDT'
