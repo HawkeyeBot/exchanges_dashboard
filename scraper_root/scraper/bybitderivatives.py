@@ -28,9 +28,10 @@ def is_asset_usd_or_derivative(symbol: str):
 
 
 class BybitDerivatives:
-    def __init__(self, account: Account, symbols: List[str], repository: Repository, exchange: str = "bybit"):
+    def __init__(self, account: Account, symbols: List[str], repository: Repository, unified_account: bool):
         logger.info(f"Bybit initializing")
         self.account = account
+        self.unified_account = unified_account
         self.alias = self.account.alias
         self.symbols = symbols
         self.api_key = self.account.api_key
@@ -90,7 +91,8 @@ class BybitDerivatives:
     def sync_account(self):
         while True:
             try:
-                account = self.rest_manager2.get_wallet_balance(accountType='CONTRACT')
+                accounttype = "UNIFIED" if self.unified_account is True else "CONTRACT"
+                account = self.rest_manager2.get_wallet_balance(accountType=accounttype)
                 assets = account['result']['list']
                 balances = []
                 total_usdt_balance = 0

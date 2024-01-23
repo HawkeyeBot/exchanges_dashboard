@@ -12,6 +12,7 @@
     {
       "alias": "demo_bybit",
       "exchange": "bybit_derivatives",
+      "unified": false,  // false by default, set this to true if you've got a unified bybit account
       "api_key": "",
       "api_secret": ""
     }
