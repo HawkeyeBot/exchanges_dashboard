@@ -290,12 +290,8 @@ class BybitDerivatives:
                                             transaction_id=exchange_income['orderId'])
                             incomes.append(income)
 
-                        previous_next_page_cursor = exchange_incomes['result']['nextPageCursor']
                         exchange_incomes = self.rest_manager2.get_closed_pnl(category="linear", limit='100', endTime=oldest_timestamp - 1,
                                                                              cursor=exchange_incomes['result']['nextPageCursor'])
-                        if previous_next_page_cursor == exchange_incomes['result']['nextPageCursor']:
-                            logger.info(f'{self.alias}: Reached last nextPageCursor, continuing with newer trades')
-                            break
                     self.repository.process_incomes(incomes, account=self.account.alias)
                     if len(incomes) < 1:
                         first_trade_reached = True
