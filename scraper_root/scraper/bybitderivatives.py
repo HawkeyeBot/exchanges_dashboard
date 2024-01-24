@@ -238,6 +238,7 @@ class BybitDerivatives:
     def sync_trades(self):
         max_fetches_in_cycle = 3
         first_trade_reached = False
+        one_day_ms = 24 * 60 * 60 * 1000
         while True:
             try:
                 counter = 0
@@ -251,7 +252,7 @@ class BybitDerivatives:
                         oldest_timestamp = oldest_income.timestamp
                         logger.warning(f'Synced trades before {readable(oldest_timestamp)}')
 
-                    exchange_incomes = self.rest_manager2.get_closed_pnl(category="linear", limit='100', endTime=oldest_timestamp - 1)
+                    exchange_incomes = self.rest_manager2.get_closed_pnl(category="linear", limit='100', startTime=oldest_timestamp - one_day_ms, endTime=oldest_timestamp - 1)
                     logger.info(f"Length of older trades fetched up to {readable(oldest_timestamp)}: {len(exchange_incomes['result']['list'])}")
                     incomes = []
 
@@ -267,11 +268,12 @@ class BybitDerivatives:
                                         asset="USDT",
                                         type='REALIZED_PNL',
                                         income=float(exchange_income['closedPnl']),
-                                        timestamp=int(exchange_income['updatedTime']),
+                                        timestamp=int(exchange_income['createdTime']),
                                         transaction_id=exchange_income['orderId'])
                         incomes.append(income)
 
                     while exchange_incomes['result']['nextPageCursor'] != '':
+                        logger.info(f"{self.alias}: Retrieving orders for page cursor {exchange_incomes['result']['nextPageCursor']}'")
                         for exchange_income in exchange_incomes['result']['list']:
                             asset = self.get_asset(exchange_income['symbol'])
                             if not is_asset_usd_or_derivative(exchange_income['symbol']):
@@ -284,7 +286,7 @@ class BybitDerivatives:
                                             asset="USDT",
                                             type='REALIZED_PNL',
                                             income=float(exchange_income['closedPnl']),
-                                            timestamp=int(exchange_income['updatedTime']),
+                                            timestamp=int(exchange_income['createdTime']),
                                             transaction_id=exchange_income['orderId'])
                             incomes.append(income)
 
@@ -322,7 +324,7 @@ class BybitDerivatives:
                                         asset="USDT",
                                         type='REALIZED_PNL',
                                         income=float(exchange_income['closedPnl']),
-                                        timestamp=int(exchange_income['updatedTime']),
+                                        timestamp=int(exchange_income['createdTime']),
                                         transaction_id=exchange_income['orderId'])
                         incomes.append(income)
 
@@ -339,7 +341,7 @@ class BybitDerivatives:
                                             asset="USDT",
                                             type='REALIZED_PNL',
                                             income=float(exchange_income['closedPnl']),
-                                            timestamp=int(exchange_income['updatedTime']),
+                                            timestamp=int(exchange_income['createdTime']),
                                             transaction_id=exchange_income['orderId'])
                             incomes.append(income)
 
