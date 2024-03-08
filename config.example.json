@@ -15,10 +15,17 @@
       "unified": false,  // false by default, set this to true if you've got a unified bybit account
       "api_key": "",
       "api_secret": ""
-    }
+    },
     {
       "alias": "demo_bitget",
       "exchange": "bitget_futures",
+      "api_key": "",
+      "api_secret": "",
+      "api_passphrase": ""
+    },
+    {
+      "alias": "demo_kucoin",
+      "exchange": "kucoin_futures",
       "api_key": "",
       "api_secret": "",
       "api_passphrase": ""
