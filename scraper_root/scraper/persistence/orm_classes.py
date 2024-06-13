@@ -42,6 +42,7 @@ class BalanceEntity(_DECL_BASE):
     registration_datetime = Column(DateTime, default=func.now())
     totalWalletBalance = Column(Float)
     totalUnrealizedProfit = Column(Float)
+    totalEquity = Column(Float)
     account = Column(String)
     assets = relationship("AssetBalanceEntity",
                           back_populates="balance", cascade="all, delete")
@@ -118,6 +119,7 @@ class TradeEntity(_DECL_BASE):
     __table_args__ = (
         (UniqueConstraint('order_id', sqlite_on_conflict='IGNORE')),
     )
+
 
 
 class TradedSymbolEntity(_DECL_BASE):

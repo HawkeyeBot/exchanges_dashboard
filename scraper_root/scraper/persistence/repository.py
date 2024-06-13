@@ -106,12 +106,13 @@ class Repository:
         with self.lockable_session as session:
             logger.debug('Updating balances')
             session.query(AssetBalanceEntity).filter(AssetBalanceEntity.account == account).delete()
-            session.query(BalanceEntity).filter(BalanceEntity.account == account).delete()
+            session.query(BalanceEntity).filter(BalanceEntity.account == account, BalanceEntity.registration_datetime < datetime.now() - timedelta(days=90)).delete()
             session.commit()
 
             balanceEntity = BalanceEntity()
             balanceEntity.totalWalletBalance = balance.totalBalance
             balanceEntity.totalUnrealizedProfit = balance.totalUnrealizedProfit
+            balanceEntity.totalEquity = balance.totalBalance + balance.totalUnrealizedProfit
             balanceEntity.account = account
 
             asset_balance_entities = []
