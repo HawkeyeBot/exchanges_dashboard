@@ -38,6 +38,7 @@ class Repository:
                         session.query(DailyBalanceEntity).filter(DailyBalanceEntity.account == account).delete()
                         session.commit()
                         result = session.query(BalanceEntity.totalWalletBalance) \
+                            .order_by(BalanceEntity.registration_datetime.desc()) \
                             .filter(BalanceEntity.account == account).first()
                         current_balance = 0
                         if result is not None:
