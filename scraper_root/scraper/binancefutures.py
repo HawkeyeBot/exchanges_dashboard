@@ -17,7 +17,7 @@ logger = logging.getLogger()
 
 
 def is_asset_usd_or_derivative(asset: str):
-    return asset.lower() in ["usdt", "busd", "usd", "usdc"]
+    return asset.lower() in ["usdt", "busd", "usd", "usdc", "bnfcr"]
 
 
 class BinanceFutures:
