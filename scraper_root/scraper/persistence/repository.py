@@ -113,7 +113,7 @@ class Repository:
             balanceEntity = BalanceEntity()
             balanceEntity.totalWalletBalance = balance.totalBalance
             balanceEntity.totalUnrealizedProfit = balance.totalUnrealizedProfit
-            balanceEntity.totalEquity = balance.totalBalance + balance.totalUnrealizedProfit
+            balanceEntity.totalEquity = float(balance.totalBalance) + float(balance.totalUnrealizedProfit)
             balanceEntity.account = account
 
             asset_balance_entities = []
