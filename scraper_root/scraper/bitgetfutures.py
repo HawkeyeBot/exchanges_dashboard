@@ -64,17 +64,12 @@ class BitgetFutures:
             try:
                 account = self.rest_manager_bitget.mix_get_accounts(productType='UMCBL')
                 assets = account['data']
-                asset_balances = [AssetBalance(asset=asset['marginCoin'],
-                                                balance=float(asset['available']),
-                                                unrealizedProfit=float(asset['unrealizedPL'])
-                                                ) for asset in assets]
+                asset_balances = [AssetBalance(asset=asset['marginCoin'], balance=float(asset['available']), unrealizedProfit=float(asset['unrealizedPL'])) for asset in assets]
 
                 # bitget has no total assets balance, assuming USDT
                 for asset in assets:
                     if asset['marginCoin'] == 'USDT':
-                        balance = Balance(totalBalance=asset['available'],
-                            totalUnrealizedProfit=asset['unrealizedPL'],
-                            assets=asset_balances)
+                        balance = Balance(totalBalance=asset['available'], totalUnrealizedProfit=asset['unrealizedPL'], assets=asset_balances)
                 self.repository.process_balances(balance=balance, account=self.alias)
                 logger.warning(f'{self.alias}: Synced balance')
                 time.sleep(100)
