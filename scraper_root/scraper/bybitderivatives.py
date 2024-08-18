@@ -241,6 +241,9 @@ class BybitDerivatives:
         one_day_ms = 24 * 60 * 60 * 1000
         while True:
             try:
+                two_years_ago = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=2*365))
+                two_years_ago = int(two_years_ago.timestamp() * 1000)
+
                 counter = 0
                 while first_trade_reached is False and counter < max_fetches_in_cycle:
                     counter += 1
@@ -251,6 +254,8 @@ class BybitDerivatives:
                     else:
                         oldest_timestamp = oldest_income.timestamp
                         logger.warning(f'Synced trades before {readable(oldest_timestamp)}')
+
+                    oldest_timestamp = max(oldest_timestamp, two_years_ago)
 
                     exchange_incomes = self.rest_manager2.get_closed_pnl(category="linear", limit='100', startTime=oldest_timestamp - one_day_ms, endTime=oldest_timestamp - 1)
                     logger.info(f"Length of older trades fetched up to {readable(oldest_timestamp)}: {len(exchange_incomes['result']['list'])}")
@@ -308,6 +313,8 @@ class BybitDerivatives:
                     else:
                         newest_timestamp = newest_income.timestamp
                         logger.warning(f'Synced newer trades since {readable(newest_timestamp)}')
+
+                    newest_timestamp = max(newest_timestamp, two_years_ago)
 
                     exchange_incomes = self.rest_manager2.get_closed_pnl(category="linear", limit='100', startTime=newest_timestamp + 1)
                     logger.info(f"Length of newer trades fetched from {readable(newest_timestamp)}: {len(exchange_incomes['result']['list'])}")
