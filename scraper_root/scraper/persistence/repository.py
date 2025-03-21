@@ -11,7 +11,7 @@ from sqlalchemy.orm import sessionmaker
 from scraper_root.scraper.data_classes import Order, Tick, Position, Balance, Income, Trade
 from scraper_root.scraper.persistence.lockable_session import LockableSession
 from scraper_root.scraper.persistence.orm_classes import _DECL_BASE, CurrentPriceEntity, \
-    BalanceEntity, AssetBalanceEntity, PositionEntity, IncomeEntity, OrderEntity, DailyBalanceEntity, TradeEntity, \
+    BalanceEntity, AssetBalanceEntity, PositionEntity, PositionHistoryEntity, IncomeEntity, OrderEntity, DailyBalanceEntity, TradeEntity, \
     TradedSymbolEntity, SymbolCheckEntity
 
 logger = logging.getLogger(__name__)
@@ -143,6 +143,19 @@ class Repository:
                 position_entity.initialMargin = position.initial_margin
                 position_entity.account = account
                 session.add(position_entity)
+                
+            for position in positions:
+                position_history_entity = PositionHistoryEntity()
+                position_history_entity.symbol = position.symbol
+                position_history_entity.side = position.side
+                position_history_entity.quantity = position.position_size
+                position_history_entity.market_price = position.market_price
+                position_history_entity.entryPrice = position.entry_price
+                position_history_entity.unrealizedProfit = position.unrealizedProfit
+                position_history_entity.initialMargin = position.initial_margin
+                position_history_entity.account = account
+                session.add(position_history_entity)
+            
             session.commit()
 
     def get_oldest_trade(self, symbol: str, account: str) -> TradeEntity:

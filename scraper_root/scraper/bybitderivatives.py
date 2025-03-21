@@ -138,7 +138,8 @@ class BybitDerivatives:
                                                   side=side,
                                                   # make it the same as binance data, bybit data is : item['side'],
                                                   unrealizedProfit=float(x['unrealisedPnl']),
-                                                  initial_margin=0.0)  # TODO: float(x['position_margin'])
+                                                  initial_margin=0.0,  # TODO: float(x['position_margin'])
+                                                  market_price=float(x['markPrice']))
                                          )
                 self.repository.process_positions(positions=positions, account=self.alias)
                 logger.warning(f'{self.alias}: Synced positions')
