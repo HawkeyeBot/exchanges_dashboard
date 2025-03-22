@@ -131,6 +131,8 @@ class Repository:
     def process_positions(self, positions: List[Position], account: str):
         with self.lockable_session as session:
             logger.debug('Updating positions')
+            balance = session.query(BalanceEntity).filter(BalanceEntity.account == account) \
+                .order_by(BalanceEntity.registration_datetime.desc()).first()
             session.query(PositionEntity).filter(PositionEntity.account == account).delete()
 
             for position in positions:
@@ -154,6 +156,7 @@ class Repository:
                 position_history_entity.unrealizedProfit = position.unrealizedProfit
                 position_history_entity.initialMargin = position.initial_margin
                 position_history_entity.account = account
+                position_history_entity.balance_id = balance.id
                 session.add(position_history_entity)
             
             session.commit()

@@ -84,6 +84,7 @@ class PositionHistoryEntity(_DECL_BASE):
     quantity = Column(Float)
     initialMargin = Column(Float)
     account = Column(String)
+    balance_id = Column(Integer, ForeignKey('BALANCE.id'))
 
 
 class CurrentPriceEntity(_DECL_BASE):
