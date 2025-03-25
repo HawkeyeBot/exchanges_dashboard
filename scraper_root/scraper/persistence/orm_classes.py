@@ -72,6 +72,20 @@ class PositionEntity(_DECL_BASE):
     initialMargin = Column(Float)
     account = Column(String)
 
+class PositionHistoryEntity(_DECL_BASE):
+    __tablename__ = 'POSITION_HISTORY'
+    id = Column(Integer, primary_key=True)
+    registration_datetime = Column(DateTime, default=func.now())
+    symbol = Column(String)
+    side = Column(String)
+    unrealizedProfit = Column(Float)
+    market_price = Column(Float)
+    entryPrice = Column(Float)
+    quantity = Column(Float)
+    initialMargin = Column(Float)
+    account = Column(String)
+    balance_id = Column(Integer, ForeignKey('BALANCE.id'))
+
 
 class CurrentPriceEntity(_DECL_BASE):
     __tablename__ = 'PRICE'

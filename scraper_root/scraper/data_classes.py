@@ -63,6 +63,7 @@ class Position:
     unrealizedProfit: float
     side: str
     initial_margin: float
+    market_price: float
 
 
 @dataclass
