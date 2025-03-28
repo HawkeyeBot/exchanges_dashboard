@@ -242,7 +242,7 @@ class BybitDerivatives:
         one_day_ms = 24 * 60 * 60 * 1000
         while True:
             try:
-                two_years_ago = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=2*365))
+                two_years_ago = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=2*365-1))
                 two_years_ago = int(two_years_ago.timestamp() * 1000)
 
                 counter = 0
