@@ -32,8 +32,18 @@ When a value is entered in the DCA field (top left), the DCA quantity and the DC
 * Enter the api-key & secret
   * `nano config.json`
 * Start the dashboard
-  * Run `docker-compose up -d`
-* Go to http://localhost:3000
+  * Run `docker compose up -d`
+* Go to http://localhost:30000
+
+# Remote access via SSH tunnel
+
+Metabase is bound to `127.0.0.1` (localhost only) and is **not** exposed to the public internet. This is intentional — Metabase has had multiple critical CVEs including pre-auth remote code execution vulnerabilities (e.g. CVE-2023-38646, CVE-2023-37470, CVE-2023-32680). Exposing Metabase directly to the internet is a significant security risk.
+
+To access the dashboard from another machine, use an SSH tunnel:
+```
+ssh -L 30000:localhost:30000 user@your-server-ip
+```
+Then open `http://localhost:30000` in your browser. The dashboard is accessible as long as the SSH session is open.
 
 | WARNING: If you change the config.json file, make sure you rebuild the container using `docker-compose up -d --build` |
 | --- |
