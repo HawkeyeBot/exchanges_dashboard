@@ -1,5 +1,5 @@
 // Copy this file to config.json in the root folder
-// supported: binance_futures, bybit_derivatives (NOTE: USDT_Perpetual only), bitget_futures (NOTE: USDT-M only), kucoin_futures, blofin_futures
+// supported: binance_futures, binance_spot, bybit_derivatives (NOTE: USDT_Perpetual only), bybit_spot, bitget_futures (NOTE: USDT-M only), kucoin_futures, blofin_futures
 
 {
   "accounts": [
@@ -36,6 +36,12 @@
       "api_key": "",
       "api_secret": "",
       "api_passphrase": ""
+    },
+    {
+      "alias": "demo_bybit_spot",
+      "exchange": "bybit_spot",
+      "api_key": "",
+      "api_secret": ""
     }
   ]
 }
