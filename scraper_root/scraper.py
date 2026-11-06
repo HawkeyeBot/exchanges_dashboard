@@ -70,7 +70,7 @@ if __name__ == '__main__':
     while True:
         try:
             time.sleep(10)
-        except:
+        except KeyboardInterrupt:
             break
 
     logger.info('Scraper shut down')
